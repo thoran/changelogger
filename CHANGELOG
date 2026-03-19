@@ -1,0 +1,7 @@
+# CHANGELOG
+
+## 20260320
+
+0.0.0: Extract changelog information from numbered revisions and write a cumulative CHANGELOG into each.
+
+1. + bin/changelogger

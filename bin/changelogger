@@ -1,0 +1,341 @@
+#!/usr/bin/env ruby
+# changelogger
+
+# 20260320
+# 0.0.0
+
+# Description:
+# Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
+# a version of a project, extract changelog information and write a cumulative
+# CHANGELOG file into each version directory.
+#
+# Tiers:
+# 1. If the binary has Changes: comments, use them directly.
+# 2. If not, diff the Ruby structure (methods, requires, classes) against the
+#    previous version.
+# 3. For the initial version, inventory what's present.
+#
+# If a CHANGELOG already exists in a version directory, that directory is skipped.
+
+# Examples:
+# 1. changelogger ~/path/to/revisions/root/
+
+def revisions_root
+  @revisions_root ||= (
+    unless ARGV[0] && File.exist?(ARGV[0])
+      $stderr.puts "Usage: changelogger <revisions_root>"
+      exit 1
+    end
+    File.expand_path(ARGV[0])
+  )
+end
+
+def version_directories
+  @version_directories ||= (
+    Dir["#{revisions_root}/*"]
+      .select{|d| File.directory?(d) && File.basename(d) =~ /\A\d+\z/}
+      .sort_by{|d| File.basename(d).to_i}
+  )
+end
+
+def changelog_exist?(directory)
+  Dir["#{directory}/CHANGELOG*"].any? || Dir["#{directory}/changelog*"].any?
+end
+
+def find_binary(directory)
+  bin_dir = File.join(directory, 'bin')
+  return nil unless Dir.exist?(bin_dir)
+  entries = Dir["#{bin_dir}/*"].reject{|f| File.directory?(f)}
+  entries.first
+end
+
+def read_header_comments(filepath)
+  return [] unless filepath && File.exist?(filepath)
+  lines = File.readlines(filepath)
+  comments = []
+  lines.each do |line|
+    break unless line =~ /\A#/ || line.strip.empty?
+    comments << line
+  end
+  comments
+end
+
+def parse_version(comments)
+  comments.each do |line|
+    return $1 if line =~ /\A# (\d+\.\d+\.\d+)\s*\z/
+  end
+  nil
+end
+
+def parse_date(comments)
+  comments.each do |line|
+    return $1 if line =~ /\A# (\d{8})\s*\z/
+  end
+  nil
+end
+
+def parse_changes(comments)
+  in_changes = false
+  entries = []
+  current_entry = nil
+  comments.each do |line|
+    line = line.chomp
+    if line =~ /\A# Changes[\s:]/
+      in_changes = true
+      next
+    end
+    next unless in_changes
+    if line =~ /\A# (\d+\/\d+|-\/0):\s*(.*)\z/
+      current_entry = {label: $1, summary: $2.strip, items: []}
+      current_entry[:summary] = nil if current_entry[:summary].empty?
+      entries << current_entry
+    elsif line =~ /\A# \d+\.\s+(.+)\z/ && current_entry
+      current_entry[:items] << $1.strip
+    elsif line =~ /\A#\s*\z/ || line.strip.empty?
+      next
+    elsif line =~ /\A# (Discussion|Notes|Todo|Examples):/
+      break
+    elsif line !~ /\A#/
+      break
+    end
+  end
+  return nil if entries.empty?
+  entries.last
+end
+
+def empty_structure
+  {requires: [], methods: [], classes: [], modules: []}
+end
+
+def extract_structure(filepath)
+  return empty_structure unless filepath && File.exist?(filepath)
+  lines = File.readlines(filepath)
+  {
+    requires: lines.grep(/\A\s*require\s/).map{|l| l.strip},
+    methods: lines.grep(/\A\s*def\s/).map{|l| l.strip.sub(/\Adef\s+/, '').sub(/\(.*/, '').strip},
+    classes: lines.grep(/\A\s*class\s/).map{|l| l.strip.sub(/\Aclass\s+/, '').sub(/\s*<.*/, '').strip},
+    modules: lines.grep(/\A\s*module\s/).map{|l| l.strip.sub(/\Amodule\s+/, '').strip},
+  }
+end
+
+def inventory_items(structure)
+  items = []
+  structure[:requires].each{|r| items << "+ #{r}"}
+  structure[:modules].each{|m| items << "+ module #{m}"}
+  structure[:classes].each{|c| items << "+ class #{c}"}
+  structure[:methods].each{|m| items << "+ #{m}()"}
+  items
+end
+
+def structural_diff(previous_structure, current_structure)
+  items = []
+  removed_requires = previous_structure[:requires] - current_structure[:requires]
+  added_requires = current_structure[:requires] - previous_structure[:requires]
+  removed_modules = previous_structure[:modules] - current_structure[:modules]
+  added_modules = current_structure[:modules] - previous_structure[:modules]
+  removed_classes = previous_structure[:classes] - current_structure[:classes]
+  added_classes = current_structure[:classes] - previous_structure[:classes]
+  removed_methods = previous_structure[:methods] - current_structure[:methods]
+  added_methods = current_structure[:methods] - previous_structure[:methods]
+  removed_requires.each{|r| items << "- #{r}"}
+  added_requires.each{|r| items << "+ #{r}"}
+  removed_modules.each{|m| items << "- module #{m}"}
+  added_modules.each{|m| items << "+ module #{m}"}
+  removed_classes.each{|c| items << "- class #{c}"}
+  added_classes.each{|c| items << "+ class #{c}"}
+  removed_methods.each{|m| items << "- #{m}()"}
+  added_methods.each{|m| items << "+ #{m}()"}
+  common_methods = current_structure[:methods] & previous_structure[:methods]
+  items += detect_modified_methods(common_methods)
+  items
+end
+
+def detect_modified_methods(common_methods)
+  return [] unless @previous_binary_lines && @current_binary_lines
+  modified = []
+  common_methods.each do |method_name|
+    previous_body = extract_method_body(@previous_binary_lines, method_name)
+    current_body = extract_method_body(@current_binary_lines, method_name)
+    modified << "~ #{method_name}()" if previous_body != current_body
+  end
+  modified
+end
+
+def extract_method_body(lines, method_name)
+  in_method = false
+  depth = 0
+  body = []
+  lines.each do |line|
+    if !in_method && line =~ /\A\s*def\s+#{Regexp.escape(method_name)}\b/
+      in_method = true
+      depth = 1
+      body << line
+      next
+    end
+    if in_method
+      depth += 1 if line =~ /\b(def|do|class|module|if|unless|case|while|until|for|begin)\b/ && line !~ /\bend\b.*\b(def|do|class|module|if|unless|case|while|until|for|begin)\b/
+      depth -= 1 if line.strip =~ /\Aend\b/
+      body << line
+      break if depth <= 0
+    end
+  end
+  body
+end
+
+def diff_binaries(previous_directory, current_directory)
+  previous_binary = find_binary(previous_directory)
+  current_binary = find_binary(current_directory)
+  previous_structure = extract_structure(previous_binary)
+  current_structure = extract_structure(current_binary)
+  @previous_binary_lines = previous_binary ? File.readlines(previous_binary) : []
+  @current_binary_lines = current_binary ? File.readlines(current_binary) : []
+  items = structural_diff(previous_structure, current_structure)
+  if items.empty? && binary_content_changed?(previous_binary, current_binary)
+    items = diff_line_summary(previous_binary, current_binary)
+  end
+  items
+end
+
+def binary_content_changed?(previous_binary, current_binary)
+  return false unless previous_binary && current_binary
+  return false unless File.exist?(previous_binary) && File.exist?(current_binary)
+  File.read(previous_binary) != File.read(current_binary)
+end
+
+def diff_line_summary(previous_file, current_file)
+  previous_lines = File.readlines(previous_file).map(&:strip)
+  current_lines = File.readlines(current_file).map(&:strip)
+  added = (current_lines - previous_lines).length
+  removed = (previous_lines - current_lines).length
+  name = File.basename(current_file)
+  parts = []
+  parts << "+#{added} lines" if added > 0
+  parts << "-#{removed} lines" if removed > 0
+  return [] if parts.empty?
+  ["~ #{name} (#{parts.join(', ')})"]
+end
+
+def diff_other_files(previous_directory, current_directory)
+  previous_files = non_binary_files(previous_directory)
+  current_files = non_binary_files(current_directory)
+  added = current_files - previous_files
+  removed = previous_files - current_files
+  common = current_files & previous_files
+  modified = common.select do |relative_path|
+    File.read(File.join(previous_directory, relative_path)) !=
+      File.read(File.join(current_directory, relative_path))
+  end
+  items = []
+  removed.each{|f| items << "- #{f}"}
+  added.each{|f| items << "+ #{f}"}
+  modified.each{|f| items << "~ #{f}"}
+  items
+end
+
+def non_binary_files(directory)
+  bin_dir = File.join(directory, 'bin')
+  Dir["#{directory}/**/*"]
+    .reject{|f| File.directory?(f)}
+    .reject{|f| f.start_with?("#{bin_dir}/")}
+    .reject{|f| File.basename(f) =~ /\ACHANGELOG/i}
+    .map{|f| f.sub("#{directory}/", '')}
+end
+
+def version_label(index)
+  index == 0 ? '-/0:' : "#{index - 1}/#{index}:"
+end
+
+def format_entry(version, date, label, items, summary)
+  if summary.nil? && items.length == 1
+    summary = items.first
+  end
+  lines = []
+  heading = [version, date].compact.join(' - ')
+  heading = label if heading.empty?
+  lines << heading
+  lines << ""
+  lines << summary if summary
+  lines << "" if summary && !items.empty?
+  unless items.empty?
+    items.each_with_index{|item, i| lines << "  #{i + 1}. #{item}"}
+  end
+  lines.join("\n")
+end
+
+def initial_other_files(directory)
+  non_binary_files(directory).map{|f| "+ #{f}"}
+end
+
+def write_changelog(directory, entries)
+  content = "# CHANGELOG\n\n" + entries.reverse.join("\n\n") + "\n"
+  File.write(File.join(directory, 'CHANGELOG'), content)
+end
+
+def process_initial_version(directory)
+  binary = find_binary(directory)
+  comments = read_header_comments(binary)
+  version = parse_version(comments)
+  date = parse_date(comments)
+  changes = parse_changes(comments)
+  if changes
+    items = changes[:items]
+    summary = changes[:summary]
+  else
+    structure = extract_structure(binary)
+    items = inventory_items(structure)
+    items += initial_other_files(directory)
+    summary = "(Initial version)"
+  end
+  format_entry(version, date, version_label(0), items, summary)
+end
+
+def changes_are_new?(changes, previous_directory)
+  return true unless changes
+  return true unless previous_directory
+  previous_binary = find_binary(previous_directory)
+  previous_comments = read_header_comments(previous_binary)
+  previous_changes = parse_changes(previous_comments)
+  return true unless previous_changes
+  changes != previous_changes
+end
+
+def process_subsequent_version(directory, index, previous_directory)
+  binary = find_binary(directory)
+  comments = read_header_comments(binary)
+  version = parse_version(comments)
+  date = parse_date(comments)
+  changes = parse_changes(comments)
+  if changes && changes_are_new?(changes, previous_directory)
+    items = changes[:items]
+    summary = changes[:summary]
+  else
+    items = diff_binaries(previous_directory, directory)
+    items += diff_other_files(previous_directory, directory)
+    summary = nil
+  end
+  format_entry(version, date, version_label(index), items, summary)
+end
+
+def main
+  revisions_root
+  cumulative_entries = []
+  previous_directory = nil
+  version_directories.each_with_index do |directory, index|
+    if changelog_exist?(directory)
+      $stderr.puts "Skipping #{File.basename(directory)}: CHANGELOG already exists"
+      previous_directory = directory
+      next
+    end
+    if index == 0
+      entry = process_initial_version(directory)
+    else
+      entry = process_subsequent_version(directory, index, previous_directory)
+    end
+    cumulative_entries << entry
+    write_changelog(directory, cumulative_entries.dup)
+    puts "Wrote CHANGELOG for version #{File.basename(directory)}"
+    previous_directory = directory
+  end
+end
+
+main
