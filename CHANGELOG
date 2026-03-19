@@ -2,6 +2,12 @@
 
 ## 20260320
 
+0.1.0: Handle when the colon is missing on the summary line. (I was going to leave it off here, so as to be ironic.)
+
+1. ~ parse_changes(): + '?'
+
+## 20260320
+
 0.0.0: Extract changelog information from numbered revisions and write a cumulative CHANGELOG into each.
 
 1. + bin/changelogger

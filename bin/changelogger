@@ -2,7 +2,7 @@
 # changelogger
 
 # 20260320
-# 0.0.0
+# 0.1.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -19,6 +19,10 @@
 
 # Examples:
 # 1. changelogger ~/path/to/revisions/root/
+
+# Changes:
+# -/0: Handle when the colon is missing on the summary line. (I was going to leave it off here, so as to be ironic.)
+# 1. ~ parse_changes(): + '?'
 
 def revisions_root
   @revisions_root ||= (
@@ -85,7 +89,7 @@ def parse_changes(comments)
       next
     end
     next unless in_changes
-    if line =~ /\A# (\d+\/\d+|-\/0):\s*(.*)\z/
+    if line =~ /\A# (\d+\/\d+|-\/0):?\s*(.*)\z/
       current_entry = {label: $1, summary: $2.strip, items: []}
       current_entry[:summary] = nil if current_entry[:summary].empty?
       entries << current_entry
