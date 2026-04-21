@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 # changelogger
 
-# 20260320
-# 0.1.0
+# 20260422
+# 0.2.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -19,18 +19,27 @@
 
 # Examples:
 # 1. changelogger ~/path/to/revisions/root/
+# 2. changelogger .
+# 3. changelogger # . is implicit
 
 # Changes:
-# -/0: Handle when the colon is missing on the summary line. (I was going to leave it off here, so as to be ironic.)
-# 1. ~ parse_changes(): + '?'
+# -/0: Implicit $PWD.
+# 1. ~ revisions_root(): Default to '.'.
 
 def revisions_root
   @revisions_root ||= (
-    unless ARGV[0] && File.exist?(ARGV[0])
-      $stderr.puts "Usage: changelogger <revisions_root>"
-      exit 1
-    end
-    File.expand_path(ARGV[0])
+    revisions_root = (
+      if ARGV[0]
+        unless File.exist?(ARGV[0])
+          $stderr.puts "Usage: changelogger <revisions_root>"
+          exit 1
+        end
+        ARGV[0]
+      else
+        '.'
+      end
+    )
+    File.expand_path(revisions_root)
   )
 end
 
