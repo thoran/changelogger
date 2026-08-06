@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 # changelogger
 
-# 20260422
-# 0.2.0
+# 20260806
+# 0.3.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -21,10 +21,6 @@
 # 1. changelogger ~/path/to/revisions/root/
 # 2. changelogger .
 # 3. changelogger # . is implicit
-
-# Changes:
-# -/0: Implicit $PWD.
-# 1. ~ revisions_root(): Default to '.'.
 
 def revisions_root
   @revisions_root ||= (

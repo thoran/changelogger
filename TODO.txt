@@ -1,0 +1,6 @@
+# TODO.txt
+
+1. A force switch, so that an existing CHANGELOG can be overwritten rather than the directory being skipped.
+2. Take the binary's name from the CHANGELOG, rather than assuming the sole entry in bin/.
+3. Produce a single CHANGELOG in the last version directory, rather than a cumulative one in every directory.
+4. Work for git repositories, whether by writing outside the repository or by rewriting history.

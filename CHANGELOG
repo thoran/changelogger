@@ -1,16 +1,27 @@
 # CHANGELOG
 
+## 20260806
+
+0.3.0: Add a README and a TODO, and retire the Changes section from the script header.
+
+1. + README.md: What the tool is for, the three tiers and the order they are tried in, the skip on an existing CHANGELOG, the output layout, the relationship to git-import-all and git-boot, and a note on this repository's own CHANGELOG having been seeded by the tool.
+2. + TODO.txt: The four items which had been kept as a loose "changelogger roadmap" file alongside the revisions, where git-import-all would have taken it for a revision of its own had it not begun ignoring everything but numbered directories.
+3. - The Changes section from the script header. The CHANGELOG holds that record now, and keeping both invites them to disagree. Revisions 0 to 2 keep theirs, being the source the CHANGELOG was seeded from.
+
+
 ## 20260422
 
 0.2.0: Implicit $PWD.
 
 1. ~ revisions_root(): Default to '.'.
 
+
 ## 20260320
 
 0.1.0: Handle when the colon is missing on the summary line. (I was going to leave it off here, so as to be ironic.)
 
 1. ~ parse_changes(): + '?'
+
 
 ## 20260320
 
