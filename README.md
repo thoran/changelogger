@@ -6,7 +6,7 @@ Given a directory of numbered revisions, writes a cumulative CHANGELOG into each
 
 It is for projects whose history was kept as numbered directories rather than as commits, and which have no CHANGELOG to show for it. Its output is a starting point to be edited, not a finished record: it can say what changed, but only you can say what the change was for.
 
-For each revision in turn, `changelogger` takes the entry from the first of these which applies:
+For each revision in turn, `changelogger` takes the entry from the first of these tiers which applies:
 
 1. The Changes section in the revision's script header, used as written.
 2. A structural diff against the previous revision, listing the requires, modules, classes and methods added, removed or altered.
@@ -37,6 +37,32 @@ $ changelogger
 ```
 
 The revisions root holds directories named `0`, `1`, `2` and so on, each a complete snapshot of the project at that point. Only numbered directories are considered; anything else is passed over. With no argument the current directory is used.
+
+
+## The Changes section
+
+Tier 1 reads the Changes section from the revision's script header, along with the version and date on the two bare comment lines above it:
+
+```
+#!/usr/bin/env ruby
+# git-import-all
+
+# 20260504
+# 0.6.0
+
+# Changes since 0.5:
+# -/0:
+# 1. ~ read_changelog(): Find the CHANGELOG in the highest numbered directory.
+# 2. ~ main(): Parse the entries once.
+```
+
+The section is cumulative across one minor series and restarted at each new one, so that it cannot grow without bound. `Changes since 0.5:` names the previous minor version, without its patch number.
+
+The `-/0:` and `n/n+1:` markers are the steps within that series. `-/0` is its first version, the dash standing for the absent predecessor; `1/2` is the step from its second version to its third. Items are numbered continuously across the whole section, so a later version's header carries the earlier steps with it and the marker says which step each item belongs to.
+
+Only the last marker's items become the entry for that revision, the earlier ones having already been written into the entries of the revisions they belong to.
+
+A `Discussion:`, `Notes:`, `Todo:` or `Examples:` heading ends the section.
 
 
 ## Output

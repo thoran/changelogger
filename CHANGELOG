@@ -2,6 +2,14 @@
 
 ## 20260806
 
+0.4.1: Document the Changes section which tier 1 reads.
+
+1. ~ README.md: + The Changes section, being cumulative across one minor series and restarted at each new one so that it cannot grow without bound, what "Changes since 0.5:" names, what the -/0 and n/n+1 markers mean and why the dash, that items are numbered continuously across the whole section, that only the last marker's items become the entry, and what ends the section. It was the least recoverable part of the format, being visible in the headers but nowhere stated.
+2. ~ README.md: Name the tiers where they are described. The script header calls them tiers, and the README twice refers to them by number, but the description itself never introduced the term.
+
+
+## 20260806
+
 0.4.0: Write the CHANGELOG in the form the repositories already use.
 
 1. ~ format_entry(): A "## <date>" heading, with the version and summary on the first line of the body and the items unindented, in place of a "<version> - <date>" heading with indented items. git-import-all reads this directly, so the output no longer wants converting by hand before an import.
