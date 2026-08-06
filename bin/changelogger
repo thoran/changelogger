@@ -2,7 +2,7 @@
 # changelogger
 
 # 20260806
-# 0.3.0
+# 0.4.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -250,23 +250,29 @@ def non_binary_files(directory)
     .map{|f| f.sub("#{directory}/", '')}
 end
 
-def version_label(index)
-  index == 0 ? '-/0:' : "#{index - 1}/#{index}:"
+MISSING_DATE = '????????'
+
+def heading_date(date, directory)
+  return date if date
+  $stderr.puts "#{File.basename(directory)}: no date in the script header; wrote #{MISSING_DATE} in its place"
+  MISSING_DATE
 end
 
-def format_entry(version, date, label, items, summary)
+def summary_line(version, summary)
+  [version, summary].compact.join(': ')
+end
+
+def format_entry(version, date, directory, items, summary)
   if summary.nil? && items.length == 1
     summary = items.first
   end
   lines = []
-  heading = [version, date].compact.join(' - ')
-  heading = label if heading.empty?
-  lines << heading
-  lines << ""
-  lines << summary if summary
-  lines << "" if summary && !items.empty?
+  lines << "## #{heading_date(date, directory)}"
+  lines << ''
+  lines << summary_line(version, summary)
   unless items.empty?
-    items.each_with_index{|item, i| lines << "  #{i + 1}. #{item}"}
+    lines << ''
+    items.each_with_index{|item, i| lines << "#{i + 1}. #{item}"}
   end
   lines.join("\n")
 end
@@ -276,7 +282,7 @@ def initial_other_files(directory)
 end
 
 def write_changelog(directory, entries)
-  content = "# CHANGELOG\n\n" + entries.reverse.join("\n\n") + "\n"
+  content = "# CHANGELOG\n\n" + entries.reverse.join("\n\n\n") + "\n"
   File.write(File.join(directory, 'CHANGELOG'), content)
 end
 
@@ -295,7 +301,7 @@ def process_initial_version(directory)
     items += initial_other_files(directory)
     summary = "(Initial version)"
   end
-  format_entry(version, date, version_label(0), items, summary)
+  format_entry(version, date, directory, items, summary)
 end
 
 def changes_are_new?(changes, previous_directory)
@@ -322,7 +328,7 @@ def process_subsequent_version(directory, index, previous_directory)
     items += diff_other_files(previous_directory, directory)
     summary = nil
   end
-  format_entry(version, date, version_label(index), items, summary)
+  format_entry(version, date, directory, items, summary)
 end
 
 def main

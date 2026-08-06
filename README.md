@@ -8,7 +8,7 @@ It is for projects whose history was kept as numbered directories rather than as
 
 For each revision in turn, `changelogger` takes the entry from the first of these which applies:
 
-1. The `Changes:` block in the revision's script header, used as written.
+1. The Changes section in the revision's script header, used as written.
 2. A structural diff against the previous revision, listing the requires, modules, classes and methods added, removed or altered.
 3. For the first revision, an inventory of what is present.
 
@@ -41,7 +41,9 @@ The revisions root holds directories named `0`, `1`, `2` and so on, each a compl
 
 ## Output
 
-Entries are written newest first, and each revision receives every entry up to and including its own, so revision `0` has one entry and the last revision has them all.
+Entries are written newest first, and each revision receives every entry up to and including its own, so revision `0` has one entry and the last revision has them all. The form is the one the repositories already use, and the one `git-import-all` reads, so the output needs no converting before an import — only the editing which any generated prose wants.
+
+Where a revision's script header carries no date, a warning naming the revision goes to stderr and `## ????????` is written in its place, rather than a date being invented or the run stopped.
 
 The version and date come from the revision's script header, which is the source of record:
 
@@ -64,7 +66,7 @@ The version and date come from the revision's script header, which is the source
 
 ## Bootstrapping
 
-This repository's CHANGELOG was seeded by running `changelogger` over its own three revisions, then edited — which is the intended workflow. Tiers 1 and 3 both show in the result: 0.1.0 and 0.2.0 came from their `Changes:` blocks verbatim, while 0.0.0, having none, produced an inventory of all twenty-seven methods, which was replaced by a single line saying what the thing does.
+This repository's CHANGELOG was seeded by running `changelogger` over its own three revisions, then edited — which is the intended workflow. Tiers 1 and 3 both show in the result: 0.1.0 and 0.2.0 came from their Changes sections verbatim, while 0.0.0, having none, produced an inventory of all twenty-seven methods, which was replaced by a single line saying what the thing does.
 
 
 ## Contributing

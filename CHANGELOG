@@ -2,6 +2,17 @@
 
 ## 20260806
 
+0.4.0: Write the CHANGELOG in the form the repositories already use.
+
+1. ~ format_entry(): A "## <date>" heading, with the version and summary on the first line of the body and the items unindented, in place of a "<version> - <date>" heading with indented items. git-import-all reads this directly, so the output no longer wants converting by hand before an import.
+2. ~ write_changelog(): Two blank lines between entries rather than one, so that the boundaries stay visible where items run to several sentences.
+3. + heading_date(): Warn on stderr naming the revision, and write ???????? where the script header carries no date, rather than inventing a date or stopping the run. The output is a seed to be edited, so an obvious hole in it is honest.
+4. + summary_line()
+5. - version_label(): The -/0 and n/n+1 markers exist because a Changes section spans a whole minor series, restarted at each one to keep it from growing without bound. Once every version has its own dated entry there is nothing left for them to disambiguate. They are still parsed out of the headers, merely no longer written.
+
+
+## 20260806
+
 0.3.0: Add a README and a TODO, and retire the Changes section from the script header.
 
 1. + README.md: What the tool is for, the three tiers and the order they are tried in, the skip on an existing CHANGELOG, the output layout, the relationship to git-import-all and git-boot, and a note on this repository's own CHANGELOG having been seeded by the tool.
