@@ -2,7 +2,7 @@
 # changelogger
 
 # 20260807
-# 0.5.0
+# 0.5.1
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -110,7 +110,7 @@ def parse_changes(comments)
       current_entry[:items] << $1.strip
     elsif line =~ /\A#\s*\z/ || line.strip.empty?
       next
-    elsif line =~ /\A# (Discussion|Notes|Todo|Examples):/
+    elsif line =~ /\A# [A-Z][A-Za-z ]*:\s*\z/
       break
     elsif line !~ /\A#/
       break

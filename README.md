@@ -62,7 +62,7 @@ The `-/0:` and `n/n+1:` markers are the steps within that series. `-/0` is its f
 
 Only the last marker's items become the entry for that revision, the earlier ones having already been written into the entries of the revisions they belong to.
 
-A `Discussion:`, `Notes:`, `Todo:` or `Examples:` heading ends the section.
+Any further heading ends the section: a line which is a capitalised word or words followed by a colon and nothing else, such as `Discussion:`, `Notes:`, `Note:`, `Todo:`, `Usage:` or `Examples:`.
 
 
 ## Output

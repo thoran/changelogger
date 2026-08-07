@@ -2,6 +2,15 @@
 
 ## 20260807
 
+0.5.1: End the Changes section at any heading, not at one of four named ones.
+
+1. ~ parse_changes(): /(Discussion|Notes|Todo|Examples):/[A-Z][A-Za-z ]*:/, anchored to the end of the line so as it matches a heading and not an item which happens to contain a colon. Markers, numbered items and blank lines are all matched before this branch is reached, so the only lines it can see are headings.
+2. The four named sections were a closed list against an open set. gem-homepage's header says "Note:", singular, and so was not ended: its numbered line was taken as an item and written into the entry for 0.2.0. Usage: and Description: appear in other repositories and would have done the same.
+3. ~ README.md: Say that any further heading ends the section, rather than naming four.
+
+
+## 20260807
+
 0.5.0: Report a change of the program's name, which the structural diff could not see.
 
 1. + parse_name(): The program's name from the header, told from the date and the version by their leading digit. It mirrors parse_version() and parse_date(), which already read the same block for the two fields below it.
