@@ -2,7 +2,7 @@
 # changelogger
 
 # 20260807
-# 0.8.0
+# 0.9.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -114,6 +114,16 @@ def summary_line?(entry, line)
   line !~ /\A#\s*\d/
 end
 
+# An item too long for its line is continued on the next, indented past where
+# an item's number would be.  An enumerator begins something of its own rather
+# than continuing what came before, which is what tells a wrapped line from a
+# sub-item: the first is joined on, the second is left to be reported.
+def continuation_line?(entry, line)
+  return false unless entry && !entry[:items].empty?
+  return false unless line =~ /\A#\s\s+\S/
+  line !~ /\A#\s+(\d+|[ivx]+|[a-z])[.)]\s/
+end
+
 def parse_changes(comments)
   in_changes = false
   entries = []
@@ -137,6 +147,8 @@ def parse_changes(comments)
       break
     elsif line !~ /\A#/
       break
+    elsif continuation_line?(current_entry, line)
+      current_entry[:items][-1] += " #{line.sub(/\A#\s*/, '').strip}"
     elsif summary_line?(current_entry, line)
       current_entry ||= begin_entry(entries, nil, nil)
       current_entry[:summary] = line.sub(/\A#\s*/, '').strip

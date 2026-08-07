@@ -2,6 +2,16 @@
 
 ## 20260807
 
+0.9.0: Join an item continued on the next line.
+
+1. + continuation_line?(): True where the entry has an item, the line is indented past where an item's number would sit, and it does not begin with an enumerator. An item too long for its line is continued on the next; should2expect writes three that way, and they were being reported as not understood, the item's meaning split between the item and a mark.
+2. ~ parse_changes(): + a branch joining such a line onto the last item with a space between.
+3. The enumerator guard is what tells a wrapped line from a sub-item. exitor's i to iii under its item 9 begin something of their own rather than continuing it, and are still reported rather than being run together into a single line, which leaves the choice where it belongs.
+4. ~ README.md: Say that an item may be continued on the next line.
+
+
+## 20260807
+
 0.8.0: Take a prose line where a summary belongs as the summary.
 
 1. + summary_line?(): True where the entry has neither a summary nor any items yet, and the line does not begin with a digit. The line after the section's heading, or after a marker carrying no summary of its own, is that entry's summary. startor writes every one of its entries that way and had five of them reported as not understood.

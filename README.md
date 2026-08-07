@@ -64,6 +64,8 @@ Only the last marker's items become the entry for that revision, the earlier one
 
 A section covering a single version needs no marker, there being nothing to tell it apart from, and many carry none. Its items then form one entry between them.
 
+An item too long for its line may be continued on the next, indented past where an item's number would be. The continuation is joined onto the item. A line beginning with an enumerator — `i.`, `2.`, `a)` — begins something of its own rather than continuing what came before, and is not joined on.
+
 The summary may be written on its own line rather than beside the marker: a prose line after the heading, or after a marker carrying no summary, is taken as the entry's summary. A line which begins with a digit is not prose, and an entry which already has items is past the place a summary belongs, so neither is mistaken for one.
 
 Any further heading ends the section: a line which is a capitalised word or words followed by a colon and nothing else, such as `Discussion:`, `Notes:`, `Note:`, `Todo:`, `Usage:` or `Examples:`.
