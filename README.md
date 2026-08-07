@@ -64,6 +64,8 @@ Only the last marker's items become the entry for that revision, the earlier one
 
 A section covering a single version needs no marker, there being nothing to tell it apart from, and many carry none. Its items then form one entry between them.
 
+The summary may be written on its own line rather than beside the marker: a prose line after the heading, or after a marker carrying no summary, is taken as the entry's summary. A line which begins with a digit is not prose, and an entry which already has items is past the place a summary belongs, so neither is mistaken for one.
+
 Any further heading ends the section: a line which is a capitalised word or words followed by a colon and nothing else, such as `Discussion:`, `Notes:`, `Note:`, `Todo:`, `Usage:` or `Examples:`.
 
 A line which is none of these — not a marker, a numbered item, a blank line or a heading — is not understood. `changelogger` warns on stderr naming the revision, and writes the line into the entry as `? <line>`, so that nothing is dropped without saying so. Fix it in the header and run again, or edit the entry by hand.

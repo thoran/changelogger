@@ -2,7 +2,7 @@
 # changelogger
 
 # 20260807
-# 0.7.0
+# 0.8.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -105,6 +105,15 @@ def begin_entry(entries, label, summary)
   entry
 end
 
+# The line after the section's heading, or after a marker carrying no summary
+# of its own, is that entry's summary where it is prose rather than an item.
+# Prose does not begin with a digit, which keeps a malformed marker out, and an
+# entry which already has items is past the place a summary belongs.
+def summary_line?(entry, line)
+  return false if entry && (entry[:summary] || !entry[:items].empty?)
+  line !~ /\A#\s*\d/
+end
+
 def parse_changes(comments)
   in_changes = false
   entries = []
@@ -128,6 +137,9 @@ def parse_changes(comments)
       break
     elsif line !~ /\A#/
       break
+    elsif summary_line?(current_entry, line)
+      current_entry ||= begin_entry(entries, nil, nil)
+      current_entry[:summary] = line.sub(/\A#\s*/, '').strip
     else
       (current_entry ? current_entry[:unparsed] : @unparsed_lines) << line
     end

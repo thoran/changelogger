@@ -2,6 +2,16 @@
 
 ## 20260807
 
+0.8.0: Take a prose line where a summary belongs as the summary.
+
+1. + summary_line?(): True where the entry has neither a summary nor any items yet, and the line does not begin with a digit. The line after the section's heading, or after a marker carrying no summary of its own, is that entry's summary. startor writes every one of its entries that way and had five of them reported as not understood.
+2. ~ parse_changes(): + a branch taking such a line as the summary, beginning the entry where the section has not begun one.
+3. The two guards are what keep it from over-reaching. An entry which already has items is past the place a summary belongs, so exitor's sub-items are still marked rather than swallowed. Prose does not begin with a digit, so should2expect's "0: Handle verbs ending in y.", which is a marker written the wrong way, is still marked rather than taken for a summary and quietly half-corrected.
+4. ~ README.md: Say where a summary may be written.
+
+
+## 20260807
+
 0.7.0: Take a Changes section carrying no marker as one entry.
 
 1. + begin_entry(): Creates an entry and appends it to the list, both the marker branch and the item branch now needing to.
