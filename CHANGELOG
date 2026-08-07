@@ -2,6 +2,14 @@
 
 ## 20260807
 
+0.5.2: Take the parentheses off a marker's summary.
+
+1. + marker_summary(): Strip a wrapping pair of parentheses, and return nil where nothing is left. The older headers write the summary as "-/0 (Text.)" and the newer ones as "-/0: Text.", and the parentheses are the marker's punctuation rather than part of what it says. exitor's entries were coming out as "0.2.2: (Detect full country names correctly.)" against a commit message of the same line without them.
+2. ~ parse_changes(): Use marker_summary(), which also absorbs the empty-summary check that followed the assignment.
+
+
+## 20260807
+
 0.5.1: End the Changes section at any heading, not at one of four named ones.
 
 1. ~ parse_changes(): /(Discussion|Notes|Todo|Examples):/[A-Z][A-Za-z ]*:/, anchored to the end of the line so as it matches a heading and not an item which happens to contain a colon. Markers, numbered items and blank lines are all matched before this branch is reached, so the only lines it can see are headings.

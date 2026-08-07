@@ -2,7 +2,7 @@
 # changelogger
 
 # 20260807
-# 0.5.1
+# 0.5.2
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -91,6 +91,11 @@ def parse_date(comments)
   nil
 end
 
+def marker_summary(text)
+  summary = text.strip.sub(/\A\((.*)\)\z/, '\1').strip
+  summary.empty? ? nil : summary
+end
+
 def parse_changes(comments)
   in_changes = false
   entries = []
@@ -103,8 +108,7 @@ def parse_changes(comments)
     end
     next unless in_changes
     if line =~ /\A# (\d+\/\d+|-\/0):?\s*(.*)\z/
-      current_entry = {label: $1, summary: $2.strip, items: []}
-      current_entry[:summary] = nil if current_entry[:summary].empty?
+      current_entry = {label: $1, summary: marker_summary($2), items: []}
       entries << current_entry
     elsif line =~ /\A# \d+\.\s+(.+)\z/ && current_entry
       current_entry[:items] << $1.strip
