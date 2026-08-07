@@ -2,7 +2,7 @@
 # changelogger
 
 # 20260807
-# 0.6.0
+# 0.7.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -96,6 +96,15 @@ def marker_summary(text)
   summary.empty? ? nil : summary
 end
 
+# A marker tells one version's items from another's within a cumulative
+# section.  A section covering a single version needs none, and some carry
+# none, so the items begin an entry of their own.
+def begin_entry(entries, label, summary)
+  entry = {label: label, summary: summary, items: [], unparsed: []}
+  entries << entry
+  entry
+end
+
 def parse_changes(comments)
   in_changes = false
   entries = []
@@ -109,9 +118,9 @@ def parse_changes(comments)
     end
     next unless in_changes
     if line =~ /\A# (\d+\/\d+|-\/0):?\s*(.*)\z/
-      current_entry = {label: $1, summary: marker_summary($2), items: [], unparsed: []}
-      entries << current_entry
-    elsif line =~ /\A# \d+\.\s+(.+)\z/ && current_entry
+      current_entry = begin_entry(entries, $1, marker_summary($2))
+    elsif line =~ /\A# \d+\.\s+(.+)\z/
+      current_entry ||= begin_entry(entries, nil, nil)
       current_entry[:items] << $1.strip
     elsif line =~ /\A#\s*\z/ || line.strip.empty?
       next
@@ -124,6 +133,9 @@ def parse_changes(comments)
     end
   end
   return nil if entries.empty?
+  # Lines met before any entry began belong to the first of them, and are
+  # surfaced when that entry is the one returned.
+  entries.first[:unparsed] = @unparsed_lines + entries.first[:unparsed]
   entries.last
 end
 

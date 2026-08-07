@@ -2,6 +2,16 @@
 
 ## 20260807
 
+0.7.0: Take a Changes section carrying no marker as one entry.
+
+1. + begin_entry(): Creates an entry and appends it to the list, both the marker branch and the item branch now needing to.
+2. ~ parse_changes(): An item met before any marker begins an entry of its own, rather than being dropped by the "&& current_entry" guard, which is gone. A marker tells one version's items from another's within a cumulative section, so a section covering a single version needs none and a good many carry none: jira's 0.2.0 and 0.3.0, startor's first entry, should2expect's whole section. They were reported as not understood at best, and lost at worst.
+3. ~ parse_changes(): Lines met before any entry began attach to the first of them, so that they surface when that entry is the one returned. Without this the orphans went missing the moment the items began an entry of their own, which is the thing 0.6.0 exists to prevent: should2expect's "0: Handle verbs ending in y." went again without a word.
+4. ~ README.md: Say that a section covering a single version carries no marker.
+
+
+## 20260807
+
 0.6.0: Mark what the Changes section holds and cannot be parsed, rather than dropping it.
 
 1. + unparsed_items(): A warning on stderr naming the revision and the line, and an item reading "? <line>" in the entry, for whatever the section holds which is none of a marker, a numbered item or a blank line. It follows heading_date(), which does the same for a missing date: warn, leave an obvious hole, and let the run finish rather than stopping it.
