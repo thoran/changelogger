@@ -2,7 +2,7 @@
 # changelogger
 
 # 20260807
-# 0.5.2
+# 0.6.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -100,6 +100,7 @@ def parse_changes(comments)
   in_changes = false
   entries = []
   current_entry = nil
+  @unparsed_lines = []
   comments.each do |line|
     line = line.chomp
     if line =~ /\A# Changes[\s:]/
@@ -108,7 +109,7 @@ def parse_changes(comments)
     end
     next unless in_changes
     if line =~ /\A# (\d+\/\d+|-\/0):?\s*(.*)\z/
-      current_entry = {label: $1, summary: marker_summary($2), items: []}
+      current_entry = {label: $1, summary: marker_summary($2), items: [], unparsed: []}
       entries << current_entry
     elsif line =~ /\A# \d+\.\s+(.+)\z/ && current_entry
       current_entry[:items] << $1.strip
@@ -118,6 +119,8 @@ def parse_changes(comments)
       break
     elsif line !~ /\A#/
       break
+    else
+      (current_entry ? current_entry[:unparsed] : @unparsed_lines) << line
     end
   end
   return nil if entries.empty?
@@ -271,6 +274,17 @@ def non_binary_files(directory)
 end
 
 MISSING_DATE = '????????'
+UNPARSED_MARK = '?'
+
+# Whatever the Changes section holds which is none of a marker, a numbered
+# item or a blank line.  Dropping it silently is how a hand-written entry goes
+# missing without anything saying so, and the whole of should2expect's did.
+def unparsed_items(directory, lines)
+  Array(lines).map do |line|
+    $stderr.puts "#{File.basename(directory)}: not understood in the Changes section, wrote it as #{UNPARSED_MARK}: #{line}"
+    "#{UNPARSED_MARK} #{line.sub(/\A#\s*/, '')}"
+  end
+end
 
 def heading_date(date, directory)
   return date if date
@@ -312,6 +326,7 @@ def process_initial_version(directory)
   version = parse_version(comments)
   date = parse_date(comments)
   changes = parse_changes(comments)
+  unparsed = unparsed_items(directory, changes ? changes[:unparsed] : @unparsed_lines)
   if changes
     items = changes[:items]
     summary = changes[:summary]
@@ -321,7 +336,7 @@ def process_initial_version(directory)
     items += initial_other_files(directory)
     summary = "(Initial version)"
   end
-  format_entry(version, date, directory, items, summary)
+  format_entry(version, date, directory, items + unparsed, summary)
 end
 
 def changes_are_new?(changes, previous_directory)
@@ -340,6 +355,9 @@ def process_subsequent_version(directory, index, previous_directory)
   version = parse_version(comments)
   date = parse_date(comments)
   changes = parse_changes(comments)
+  # Before changes_are_new?, which parses the previous version and would leave
+  # @unparsed_lines holding its lines rather than this one's.
+  unparsed = unparsed_items(directory, changes ? changes[:unparsed] : @unparsed_lines)
   if changes && changes_are_new?(changes, previous_directory)
     items = changes[:items]
     summary = changes[:summary]
@@ -348,7 +366,7 @@ def process_subsequent_version(directory, index, previous_directory)
     items += diff_other_files(previous_directory, directory)
     summary = nil
   end
-  format_entry(version, date, directory, items, summary)
+  format_entry(version, date, directory, items + unparsed, summary)
 end
 
 def main

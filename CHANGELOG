@@ -2,6 +2,19 @@
 
 ## 20260807
 
+0.6.0: Mark what the Changes section holds and cannot be parsed, rather than dropping it.
+
+1. + unparsed_items(): A warning on stderr naming the revision and the line, and an item reading "? <line>" in the entry, for whatever the section holds which is none of a marker, a numbered item or a blank line. It follows heading_date(), which does the same for a missing date: warn, leave an obvious hole, and let the run finish rather than stopping it.
+2. ~ parse_changes(): + an else, so that a line matching no branch is collected rather than falling through the loop unremarked. + @unparsed_lines.
+3. ~ process_initial_version() and process_subsequent_version(): Append the marks to the items. In the latter the collection is taken before changes_are_new?(), which parses the previous version and would otherwise leave that one's lines standing in place of this one's.
+4. + UNPARSED_MARK
+5. The three shapes which prompted this, none of them worth a branch of its own: exitor's sub-items numbered i, ii and iii; should2expect's marker written "0:" rather than "-/0"; startor's summary written with no marker above it. Eleven lines across the three, every one lost without a word. Worse than the count suggests: should2expect's marker not being recognised left current_entry nil, so the guard on the item branch dropped its three items too, the section came back empty, and the version silently took a structural diff in place of the entry sitting in its header.
+6. The lines attach to the entry current when they are met, and orphans, met before any marker, to the run. The Changes section is cumulative across a minor series, so a version's header carries the earlier markers' lines as well as its own, and holding them all against the returned entry put exitor's 0.2.0 sub-items into the entries for 0.2.1 and 0.2.2 too, three versions reporting the same three lines.
+7. ~ README.md: Say what happens to a line which cannot be parsed.
+
+
+## 20260807
+
 0.5.2: Take the parentheses off a marker's summary.
 
 1. + marker_summary(): Strip a wrapping pair of parentheses, and return nil where nothing is left. The older headers write the summary as "-/0 (Text.)" and the newer ones as "-/0: Text.", and the parentheses are the marker's punctuation rather than part of what it says. exitor's entries were coming out as "0.2.2: (Detect full country names correctly.)" against a commit message of the same line without them.
