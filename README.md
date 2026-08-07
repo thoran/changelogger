@@ -9,7 +9,7 @@ It is for projects whose history was kept as numbered directories rather than as
 For each revision in turn, `changelogger` takes the entry from the first of these tiers which applies:
 
 1. The Changes section in the revision's script header, used as written.
-2. A structural diff against the previous revision, listing the requires, modules, classes and methods added, removed or altered.
+2. A structural diff against the previous revision, listing the requires, modules, classes and methods added, removed or altered, and a change of the program's name where the header carries one.
 3. For the first revision, an inventory of what is present.
 
 A revision which already has a CHANGELOG is skipped, so a generated entry can be rewritten by hand and will not be overwritten on a later run.

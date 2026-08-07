@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 20260807
+
+0.5.0: Report a change of the program's name, which the structural diff could not see.
+
+1. + parse_name(): The program's name from the header, told from the date and the version by their leading digit. It mirrors parse_version() and parse_date(), which already read the same block for the two fields below it.
+2. + name_change(): /old/new/ where the two differ, in the notation the changelogs already use, and first among the items, a change of identity leading whatever else the version did. Found while backfilling git-checkout-new-issue, whose 0.1.0 renamed the program from git-checkout_with_jira and left no other trace: the file was already bin/git-checkout-new-issue, so only the header changed and tier 2 reported nothing at all of it.
+3. ~ extract_structure(): + name. A name declared in the header is a declaration as much as a require or a def is, and the structure hash is what tier 2 compares.
+4. ~ structural_diff(): Begin the items with name_change().
+5. ~ empty_structure(): + name, so that a file which is not there compares as having no name rather than as having none of a key.
+6. inventory_items() is left alone, so tier 3 is unchanged. A first version does not change its name, and reporting it there would say only that the program is called what it is called.
+7. ~ README.md and the Tiers section of the header: Say that tier 2 reports a change of name.
+
+
 ## 20260806
 
 0.4.1: Document the Changes section which tier 1 reads.

@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 # changelogger
 
-# 20260806
-# 0.4.1
+# 20260807
+# 0.5.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -11,8 +11,8 @@
 #
 # Tiers:
 # 1. If the binary has Changes: comments, use them directly.
-# 2. If not, diff the Ruby structure (methods, requires, classes) against the
-#    previous version.
+# 2. If not, diff the Ruby structure (name, methods, requires, classes) against
+#    the previous version.
 # 3. For the initial version, inventory what's present.
 #
 # If a CHANGELOG already exists in a version directory, that directory is skipped.
@@ -69,6 +69,14 @@ def read_header_comments(filepath)
   comments
 end
 
+def parse_name(comments)
+  comments.each do |line|
+    next if line =~ /\A# \d/
+    return $1 if line =~ /\A# (\S+)\s*\z/
+  end
+  nil
+end
+
 def parse_version(comments)
   comments.each do |line|
     return $1 if line =~ /\A# (\d+\.\d+\.\d+)\s*\z/
@@ -113,13 +121,14 @@ def parse_changes(comments)
 end
 
 def empty_structure
-  {requires: [], methods: [], classes: [], modules: []}
+  {name: nil, requires: [], methods: [], classes: [], modules: []}
 end
 
 def extract_structure(filepath)
   return empty_structure unless filepath && File.exist?(filepath)
   lines = File.readlines(filepath)
   {
+    name: parse_name(read_header_comments(filepath)),
     requires: lines.grep(/\A\s*require\s/).map{|l| l.strip},
     methods: lines.grep(/\A\s*def\s/).map{|l| l.strip.sub(/\Adef\s+/, '').sub(/\(.*/, '').strip},
     classes: lines.grep(/\A\s*class\s/).map{|l| l.strip.sub(/\Aclass\s+/, '').sub(/\s*<.*/, '').strip},
@@ -136,8 +145,15 @@ def inventory_items(structure)
   items
 end
 
+def name_change(previous_structure, current_structure)
+  previous_name = previous_structure[:name]
+  current_name = current_structure[:name]
+  return [] unless previous_name && current_name && previous_name != current_name
+  ["/#{previous_name}/#{current_name}/"]
+end
+
 def structural_diff(previous_structure, current_structure)
-  items = []
+  items = name_change(previous_structure, current_structure)
   removed_requires = previous_structure[:requires] - current_structure[:requires]
   added_requires = current_structure[:requires] - previous_structure[:requires]
   removed_modules = previous_structure[:modules] - current_structure[:modules]
