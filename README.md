@@ -77,6 +77,8 @@ A line which is none of these — not a marker, a numbered item, a blank line or
 
 Entries are written newest first, and each revision receives every entry up to and including its own, so revision `0` has one entry and the last revision has them all. The form is the one the repositories already use, and the one `git-import-all` reads, so the output needs no converting before an import — only the editing which any generated prose wants.
 
+A date heading is written once for the versions which share it rather than once apiece, the day being one occasion and the versions the steps it was released in. `git-import-all` reads that form as of 0.14.0; an older copy takes the first version beneath a heading and drops the rest without a word.
+
 Where a revision's script header carries no date, a warning naming the revision goes to stderr and `## ????????` is written in its place, rather than a date being invented or the run stopped.
 
 The version and date come from the revision's script header, which is the source of record:

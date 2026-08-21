@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 20260821
+
+0.10.0: Write one date heading for the versions which share it.
+
+1. ~ format_entry(): returns the date beside the body rather than writing it into the body, so that the writer decides when a heading is due.
+2. ~ write_changelog(): a heading only where the date differs from the one above it. Entries stay two blank lines apart whether or not a heading stands between them.
+3. ~ CHANGELOG: one heading per date, thirteen becoming four.
+4. ~ README.md: say that a heading is written once for the versions which share it, and that git-import-all reads that form as of 0.14.0.
+5. Across the twenty repositories the tap installs from, 293 headings state a date where 168 occasions had one. git-import-all's 20140510 stated its date fourteen times.
+
+
 ## 20260807
 
 0.9.0: Join an item continued on the next line.
@@ -10,8 +21,6 @@
 4. ~ README.md: Say that an item may be continued on the next line.
 
 
-## 20260807
-
 0.8.0: Take a prose line where a summary belongs as the summary.
 
 1. + summary_line?(): True where the entry has neither a summary nor any items yet, and the line does not begin with a digit. The line after the section's heading, or after a marker carrying no summary of its own, is that entry's summary. startor writes every one of its entries that way and had five of them reported as not understood.
@@ -20,8 +29,6 @@
 4. ~ README.md: Say where a summary may be written.
 
 
-## 20260807
-
 0.7.0: Take a Changes section carrying no marker as one entry.
 
 1. + begin_entry(): Creates an entry and appends it to the list, both the marker branch and the item branch now needing to.
@@ -29,8 +36,6 @@
 3. ~ parse_changes(): Lines met before any entry began attach to the first of them, so that they surface when that entry is the one returned. Without this the orphans went missing the moment the items began an entry of their own, which is the thing 0.6.0 exists to prevent: should2expect's "0: Handle verbs ending in y." went again without a word.
 4. ~ README.md: Say that a section covering a single version carries no marker.
 
-
-## 20260807
 
 0.6.0: Mark what the Changes section holds and cannot be parsed, rather than dropping it.
 
@@ -43,15 +48,11 @@
 7. ~ README.md: Say what happens to a line which cannot be parsed.
 
 
-## 20260807
-
 0.5.2: Take the parentheses off a marker's summary.
 
 1. + marker_summary(): Strip a wrapping pair of parentheses, and return nil where nothing is left. The older headers write the summary as "-/0 (Text.)" and the newer ones as "-/0: Text.", and the parentheses are the marker's punctuation rather than part of what it says. exitor's entries were coming out as "0.2.2: (Detect full country names correctly.)" against a commit message of the same line without them.
 2. ~ parse_changes(): Use marker_summary(), which also absorbs the empty-summary check that followed the assignment.
 
-
-## 20260807
 
 0.5.1: End the Changes section at any heading, not at one of four named ones.
 
@@ -59,8 +60,6 @@
 2. The four named sections were a closed list against an open set. gem-homepage's header says "Note:", singular, and so was not ended: its numbered line was taken as an item and written into the entry for 0.2.0. Usage: and Description: appear in other repositories and would have done the same.
 3. ~ README.md: Say that any further heading ends the section, rather than naming four.
 
-
-## 20260807
 
 0.5.0: Report a change of the program's name, which the structural diff could not see.
 
@@ -81,8 +80,6 @@
 2. ~ README.md: Name the tiers where they are described. The script header calls them tiers, and the README twice refers to them by number, but the description itself never introduced the term.
 
 
-## 20260806
-
 0.4.0: Write the CHANGELOG in the form the repositories already use.
 
 1. ~ format_entry(): A "## <date>" heading, with the version and summary on the first line of the body and the items unindented, in place of a "<version> - <date>" heading with indented items. git-import-all reads this directly, so the output no longer wants converting by hand before an import.
@@ -91,8 +88,6 @@
 4. + summary_line()
 5. - version_label(): The -/0 and n/n+1 markers exist because a Changes section spans a whole minor series, restarted at each one to keep it from growing without bound. Once every version has its own dated entry there is nothing left for them to disambiguate. They are still parsed out of the headers, merely no longer written.
 
-
-## 20260806
 
 0.3.0: Add a README and a TODO, and retire the Changes section from the script header.
 
@@ -114,8 +109,6 @@
 
 1. ~ parse_changes(): + '?'
 
-
-## 20260320
 
 0.0.0: Extract changelog information from numbered revisions and write a cumulative CHANGELOG into each.
 

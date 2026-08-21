@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 # changelogger
 
-# 20260807
-# 0.9.0
+# 20260821
+# 0.10.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -332,27 +332,38 @@ def summary_line(version, summary)
   [version, summary].compact.join(': ')
 end
 
+# The date is returned beside the body rather than written into it, the writer
+# deciding when a heading is due.
 def format_entry(version, date, directory, items, summary)
   if summary.nil? && items.length == 1
     summary = items.first
   end
   lines = []
-  lines << "## #{heading_date(date, directory)}"
-  lines << ''
   lines << summary_line(version, summary)
   unless items.empty?
     lines << ''
     items.each_with_index{|item, i| lines << "#{i + 1}. #{item}"}
   end
-  lines.join("\n")
+  {date: heading_date(date, directory), body: lines.join("\n")}
 end
 
 def initial_other_files(directory)
   non_binary_files(directory).map{|f| "+ #{f}"}
 end
 
+# One heading per date rather than one per version.  Nine versions released
+# upon one day wrote "## 20260304" nine times, which asserts nine occasions
+# where there was one; under the dawn rule a date is a day's work, and the
+# versions beneath a heading are the steps it was released in.  Entries stay
+# two blank lines apart whether or not a heading stands between them.
 def write_changelog(directory, entries)
-  content = "# CHANGELOG\n\n" + entries.reverse.join("\n\n\n") + "\n"
+  previous_date = nil
+  blocks = entries.reverse.collect do |entry|
+    block = entry[:date] == previous_date ? entry[:body] : "## #{entry[:date]}\n\n#{entry[:body]}"
+    previous_date = entry[:date]
+    block
+  end
+  content = "# CHANGELOG\n\n" + blocks.join("\n\n\n") + "\n"
   File.write(File.join(directory, 'CHANGELOG'), content)
 end
 
