@@ -2,6 +2,14 @@
 
 ## 20260821
 
+0.10.1: + LICENSE, which the README has named without one being present.
+
+1. + LICENSE: the MIT text, copyright 2026 thoran. The year is that of the first commit. The README has answered "MIT" under a heading of its own while the repository carried no licence text at all, so anyone taking it at its word had nothing to read and nothing to comply with.
+2. ~ bin/changelogger: /0.10.0/0.10.1/, and the date.
+
+
+## 20260821
+
 0.10.0: Write one date heading for the versions which share it.
 
 1. ~ format_entry(): returns the date beside the body rather than writing it into the body, so that the writer decides when a heading is due.
