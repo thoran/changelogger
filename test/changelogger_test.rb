@@ -56,8 +56,17 @@ describe "changelogger" do
     File.write(File.join(directory, name), source)
   end
 
-  def run_changelogger
-    output = IO.popen([RbConfig.ruby, TOOL, @root], err: [:child, :out], &:read)
+  # A library keeps its header in lib/, named for the project rather than sitting in
+  # bin/.  The revisions root is a temporary directory, so its basename is what a
+  # library file must be named to be found without being pointed at.
+  def library_revision(number, source, name: File.basename(@root))
+    directory = File.join(@root, number.to_s, 'lib')
+    FileUtils.mkdir_p(directory)
+    File.write(File.join(directory, "#{name}.rb"), source)
+  end
+
+  def run_changelogger(*arguments)
+    output = IO.popen([RbConfig.ruby, TOOL, *arguments, @root], err: [:child, :out], &:read)
     [output, $?.exitstatus]
   end
 
@@ -157,4 +166,41 @@ describe "changelogger" do
     run_changelogger
     _(changelog(1)).must_include '/thing/other/'
   end
+# 0.13.0.  A library has no bin/, and its header is read from lib/ instead.
+it "reads a library header from lib/" do
+  library_revision(0, script('0.0.0', PLAIN_METHOD))
+  library_revision(1, script('0.1.0', PLAIN_METHOD + MODIFIER_METHOD, changes: "# Changes since 0.0:\n# 1. + guarded(), for the empty case.\n"))
+  run_changelogger
+  _(changelog(1)).must_include '+ guarded(), for the empty case.'
+end
+
+# Where the library is not named for the revisions root there is nothing to guess
+# from, and the switch is how it is said.
+it "reads the header named by --header-file" do
+  library_revision(0, script('0.0.0', PLAIN_METHOD), name: 'Otherwise')
+  library_revision(1, script('0.1.0', PLAIN_METHOD, changes: "# Changes since 0.0:\n# 1. ~ named outright.\n"), name: 'Otherwise')
+  run_changelogger('--header-file', 'lib/Otherwise.rb')
+  _(changelog(1)).must_include '~ named outright.'
+end
+
+# bin/ is looked to first, a program being what changelogger was written for.
+it "prefers bin/ where a project holds both" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  revision(1, script('0.1.0', PLAIN_METHOD, changes: "# Changes since 0.0:\n# 1. ~ from bin.\n"))
+  library_revision(1, script('0.1.0', PLAIN_METHOD, changes: "# Changes since 0.0:\n# 1. ~ from lib.\n"))
+  run_changelogger
+  _(changelog(1)).must_include '~ from bin.'
+  _(changelog(1)).wont_include '~ from lib.'
+end
+
+# A section header carrying text after its colon ends the Changes section, which
+# 0.12.1 fixed and nothing had covered.
+it "ends the Changes section at a section header with text after it" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  revision(1, script('0.1.0', PLAIN_METHOD, changes: "# Changes since 0.0:\n# 1. ~ the only item.\n\n# History: this paragraph is not a change.\n"))
+  run_changelogger
+  _(changelog(1)).must_include '~ the only item.'
+  _(changelog(1)).wont_include 'this paragraph is not a change.'
+end
+
 end

@@ -2,6 +2,16 @@
 
 ## 20260823
 
+0.13.0: + a library's header, read from lib/ where there is no bin/, and --header-file naming one outright.
+
+1. + find_library(): a library keeps its header in lib/, named for the project, where a program carries one alone in bin/. Preferred is the file named for the revisions root, matched without regard to case; failing that the only .rb there, two being nothing to choose between. Until now changelogger read bin/ or nothing, so every library fell to tier 2 and was written out as `## ????????` with no version, no summary and a bare list of files changed.
+2. + -f, --header-file: the header named outright, relative to each numbered directory. It settles which file is read, which is the only way a project holding both bin/ and lib/ can say which it means, and it covers a library whose name is not the revisions root's.
+3. ~ find_binary(): the switch first, then bin/, then lib/. bin/ before lib/ keeps every project which already worked reading exactly what it read before.
+4. No new dependency: the switch is read from ARGV rather than through switches.rb, this program having carried no require at all and its formula no resource.
+5. + four examples, run to 15. Against 0.12.1 the two library ones fail and the other two pass, so the first two catch this and the second two guard what was already right — the bin/ preference, and the section header which 0.12.1 fixed and nothing had covered.
+6. ~ bin/changelogger: /0.12.1/0.13.0/
+
+
 0.12.1: A section header ends the Changes section whether or not text follows its colon.
 
 1. ~ parse_changes(): a section header stopped the Changes section only when nothing followed its colon, the test being `/\A# [A-Z][A-Za-z ]*:\s*\z/`. `# Todo:` matched and stopped it. `# History: I realised when wanting to dump all bookmarks...` did not, so that paragraph and everything below it was read as part of the Changes section and written out as unparsed `?` items, four of them in every entry the section reached. Anchoring upon the colon alone stops both.
