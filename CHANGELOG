@@ -2,6 +2,15 @@
 
 ## 20260823
 
+0.12.0: + test/, MiniTest spec style, running against revisions built for each example.
+
+1. + test/changelogger_test.rb: eleven examples, each building its own numbered revisions in a temporary directory and reading the CHANGELOG which was written into them. The revisions root is the whole of the interface and was already there, so nothing needed adding to the program to make it testable. Modelled upon audit_requires' test, which builds a gem home per example for the same reason: what is installed upon this machine, or staged beside it, decides nothing.
+2. + CHANGELOGGER, an environment variable naming the binary under test, so that the suite can be pointed at another revision. Run against 0.10.1 two of the eleven fail — the two written for the fault 0.11.0 fixed — which is how they are known to catch it rather than merely to pass here.
+3. The other nine pass against 0.10.1, pinning behaviour which was already right: tier 1 taking a Changes section as written, tier 3 inventorying the first revision, methods added and removed and altered, the cumulative order, the skip which leaves a hand-written entry alone, and the name change tier 2 cannot see from structure. Guards rather than regressions, and worth saying which is which.
+4. No Rakefile, the tap's other programs having none and this being run as `ruby test/changelogger_test.rb`. moby carries one because moby is a gem.
+5. ~ bin/changelogger: /0.11.0/0.12.0/
+
+
 0.11.0: Read a method's end as its own, a modifier having been counted as opening a block.
 
 1. ~ extract_method_body(): the depth count took any line holding `if`, `unless`, `while`, `until`, `do`, `def`, `class`, `module`, `case`, `for` or `begin` as opening a block. A modifier opens nothing and carries no end — `return nil if x` and `depth = n if line =~ //` are ordinary Ruby and appear throughout — so the count never came back down and the extraction ran past the method's own end into the rest of the file. tap-audit's install_body is sixteen lines and was read as six hundred and eighty, ending at `main`.
