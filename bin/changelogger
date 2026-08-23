@@ -2,7 +2,7 @@
 # changelogger
 
 # 20260823
-# 0.13.0
+# 0.14.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -136,9 +136,31 @@ def parse_version(comments)
   nil
 end
 
+# A date line may carry more than one date, the work having spanned days: only as
+# much as changes is written, so an element escalates against the one before it —
+# one or two digits being a day within the same month, four being MMDD within the
+# same year, eight being a date outright.  The last is the completion date, which
+# is the one a version takes.  A retired form, met when reading older headers.
+def expand_dates(text)
+  parts = text.split(/\s*,\s*/)
+  dates = [parts.first]
+  parts.drop(1).each do |part|
+    previous = dates.last
+    dates << (
+      case part.length
+      when 1, 2 then previous[0, 6] + part.rjust(2, '0')
+      when 4 then previous[0, 4] + part
+      when 8 then part
+      else previous
+      end
+    )
+  end
+  dates.last
+end
+
 def parse_date(comments)
   comments.each do |line|
-    return $1 if line =~ /\A# (\d{8})\s*\z/
+    return expand_dates($1) if line =~ /\A# (\d{8}(?:\s*,\s*\d{1,8})*)\s*\z/
   end
   nil
 end

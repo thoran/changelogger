@@ -2,6 +2,15 @@
 
 ## 20260823
 
+0.14.0: + a date line carrying more than one date, the last being the completion date.
+
+1. + expand_dates(): a header's date line may carry several dates, the work having spanned days, and only as much as changes is written. An element escalates against the one before it: one or two digits a day within the same month, four MMDD within the same year, eight a date outright, and a line may escalate mid-way — `20091218, 19, 20100112`. The last is the completion date, which is the one a version takes.
+2. ~ parse_date(): `/\A# (\d{8})\s*\z/` took a lone date and nothing else, so every multi-date header wrote ???????? into its heading and the date had to be supplied by hand afterwards. A retired form, but the headers carrying it are not going to be rewritten: it is the record of when the work happened.
+3. Run against the Browser library's sixteen revisions, three headings move from ???????? to a date: 20221205, 20230102 and 20250925, the last from `20250922, 23, 24, 25`. git-import-all parses fifteen entries where it parsed fourteen, an entry having been merged into its neighbour for want of a heading to separate them.
+4. + two examples, run to 17, both failing against 0.13.0.
+5. ~ bin/changelogger: /0.13.0/0.14.0/
+
+
 0.13.0: + a library's header, read from lib/ where there is no bin/, and --header-file naming one outright.
 
 1. + find_library(): a library keeps its header in lib/, named for the project, where a program carries one alone in bin/. Preferred is the file named for the revisions root, matched without regard to case; failing that the only .rb there, two being nothing to choose between. Until now changelogger read bin/ or nothing, so every library fell to tier 2 and was written out as `## ????????` with no version, no summary and a bare list of files changed.

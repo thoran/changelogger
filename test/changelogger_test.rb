@@ -44,8 +44,8 @@ describe "changelogger" do
     FileUtils.remove_entry(@root)
   end
 
-  def script(version, body, name: 'thing', changes: nil)
-    header = "#!/usr/bin/env ruby\n# #{name}\n\n# 20260823\n# #{version}\n"
+  def script(version, body, name: 'thing', changes: nil, date: '20260823')
+    header = "#!/usr/bin/env ruby\n# #{name}\n\n# #{date}\n# #{version}\n"
     header += changes.to_s
     "#{header}\n#{body}"
   end
@@ -201,6 +201,24 @@ it "ends the Changes section at a section header with text after it" do
   run_changelogger
   _(changelog(1)).must_include '~ the only item.'
   _(changelog(1)).wont_include 'this paragraph is not a change.'
+end
+
+# 0.14.0.  A date line may carry more than one date, the work having spanned days,
+# and the last of them is the completion date.  A retired form, met when reading
+# older headers, which until now wrote ???????? in the heading.
+it "takes the last date of a multi-date header" do
+  revision(0, script('0.0.0', PLAIN_METHOD, date: '20221203, 04, 05'))
+  run_changelogger
+  _(changelog(0)).must_include '## 20221205'
+  _(changelog(0)).wont_include '????????'
+end
+
+# An element escalates against the one before it: two digits a day, four MMDD,
+# eight a date outright.
+it "escalates a multi-date header through day, month and year" do
+  revision(0, script('0.0.0', PLAIN_METHOD, date: '20091218, 19, 20100112'))
+  run_changelogger
+  _(changelog(0)).must_include '## 20100112'
 end
 
 end
