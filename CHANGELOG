@@ -2,6 +2,14 @@
 
 ## 20260823
 
+0.12.1: A section header ends the Changes section whether or not text follows its colon.
+
+1. ~ parse_changes(): a section header stopped the Changes section only when nothing followed its colon, the test being `/\A# [A-Z][A-Za-z ]*:\s*\z/`. `# Todo:` matched and stopped it. `# History: I realised when wanting to dump all bookmarks...` did not, so that paragraph and everything below it was read as part of the Changes section and written out as unparsed `?` items, four of them in every entry the section reached. Anchoring upon the colon alone stops both.
+2. Met upon the Browser library, whose lib/Browser.rb carries Changes, then History, then Todo. changelogger cannot read a library's header at all — it looks in bin/ — so this was reached by putting that header where bin/ is looked for, which is what 0.13.0 is for.
+3. Nothing which already worked moves: run before and after against dump_browser_history_to_csv and open_browser_history_from_csv, sixteen revisions between them, the CHANGELOG written is identical either way. The eleven examples pass.
+4. ~ bin/changelogger: /0.12.0/0.12.1/
+
+
 0.12.0: + test/, MiniTest spec style, running against revisions built for each example.
 
 1. + test/changelogger_test.rb: eleven examples, each building its own numbered revisions in a temporary directory and reading the CHANGELOG which was written into them. The revisions root is the whole of the interface and was already there, so nothing needed adding to the program to make it testable. Modelled upon audit_requires' test, which builds a gem home per example for the same reason: what is installed upon this machine, or staged beside it, decides nothing.
