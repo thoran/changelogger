@@ -193,6 +193,45 @@ describe "changelogger" do
     run_changelogger
     _(changelog(1)).must_include '/thing/other/'
   end
+
+  # An item says which file it changed, as an entry written by hand does.
+  it "names the file a diffed item was read from" do
+    revision(0, script('0.0.0', PLAIN_METHOD))
+    revision(1, script('0.1.0', PLAIN_METHOD + MODIFIER_METHOD))
+    run_changelogger
+    _(changelog(1)).must_include '~ bin/thing: + guarded()'
+  end
+
+  it "names the file an inventoried item was read from" do
+    revision(0, script('0.0.0', PLAIN_METHOD))
+    run_changelogger
+    _(changelog(0)).must_include '~ bin/thing: + plain()'
+  end
+
+  # A library's items name lib/, that being where its header was read.
+  it "names a library by the file it is" do
+    library_revision(0, script('0.0.0', PLAIN_METHOD))
+    library_revision(1, script('0.1.0', PLAIN_METHOD + MODIFIER_METHOD))
+    run_changelogger
+    _(changelog(1)).must_match(%r{~ lib/\S+\.rb: \+ guarded\(\)})
+  end
+
+  # Tier 1's items are written by hand and say what they mean already.
+  it "leaves a Changes section item unprefixed" do
+    revision(0, script('0.0.0', PLAIN_METHOD))
+    revision(1, script('0.1.0', PLAIN_METHOD + MODIFIER_METHOD, changes: "# Changes since 0.0:\n# 1. + guarded(), for the empty case.\n"))
+    run_changelogger
+    _(changelog(1)).must_include '1. + guarded(), for the empty case.'
+    _(changelog(1)).wont_include '~ bin/thing: + guarded(), for the empty case.'
+  end
+
+  # A name change names the program rather than anything within it.
+  it "leaves a name change unprefixed" do
+    revision(0, script('0.0.0', PLAIN_METHOD, name: 'thing'))
+    revision(1, script('0.1.0', PLAIN_METHOD, name: 'other'), name: 'other')
+    run_changelogger
+    _(changelog(1)).must_include '1. /thing/other/'
+  end
 # 0.13.0.  A library has no bin/, and its header is read from lib/ instead.
 it "reads a library header from lib/" do
   library_revision(0, script('0.0.0', PLAIN_METHOD))

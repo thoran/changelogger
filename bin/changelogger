@@ -2,7 +2,7 @@
 # changelogger
 
 # 20260824
-# 0.15.0
+# 0.16.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -463,6 +463,17 @@ def write_changelog(directory, entries)
   File.write(File.join(directory, 'CHANGELOG'), content)
 end
 
+# An item names what changed within the file it was read from, as an entry
+# written by hand does: `~ bin/tap-audit: + usage()` rather than a bare
+# `+ usage()`.  Tier 1's items are not passed through here, being written by
+# hand already; nor is a name change, which names the program rather than
+# anything within it.
+def within(binary, directory, items)
+  return items unless binary
+  path = binary.sub("#{directory}/", '')
+  items.collect{|item| item.start_with?('/') ? item : "~ #{path}: #{item}"}
+end
+
 def process_initial_version(directory)
   binary = find_binary(directory)
   comments = read_header_comments(binary)
@@ -475,7 +486,7 @@ def process_initial_version(directory)
     summary = changes[:summary]
   else
     structure = extract_structure(binary)
-    items = inventory_items(structure)
+    items = within(binary, directory, inventory_items(structure))
     items += initial_other_files(directory)
     summary = "(Initial version)"
   end
@@ -505,7 +516,7 @@ def process_subsequent_version(directory, index, previous_directory)
     items = changes[:items]
     summary = changes[:summary]
   else
-    items = diff_binaries(previous_directory, directory)
+    items = within(binary, directory, diff_binaries(previous_directory, directory))
     items += diff_other_files(previous_directory, directory)
     summary = nil
   end

@@ -2,6 +2,16 @@
 
 ## 20260824
 
+0.16.0: An item names the file it was read from, as an entry written by hand does.
+
+1. + bin/changelogger: + within(): prefixes each structural item with the file it came from, relative to the revision directory, so that tier 2 writes `~ bin/tap-audit: + usage()` where it wrote `+ usage()` and tier 3 does likewise. The path is the one find_binary already settled upon, so a library's items name lib/Browser.rb and a program's name bin/<program>.
+2. ~ bin/changelogger: ~ process_initial_version(), ~ process_subsequent_version(): the two places a structural item is made.
+3. Tier 1's items are not passed through it, being written by hand and saying what they mean already; nor is a name change, which names the program rather than anything within it.
+4. Why: every entry written by hand in these repositories names its file, and tier 2's did not, so an entry taken from the generator had to have it added afterwards. tap-audit's fifteen revisions were prefixed by hand across 130 items after the fact, which is the work this removes.
+5. ~ test/changelogger_test.rb: + five examples, run to 24. Against 0.15.0 the three which assert a prefix fail; the two which assert its absence pass either way, there being no prefix to find, and are guards rather than regressions.
+6. ~ bin/changelogger: /0.15.0/0.16.0/
+
+
 0.15.0: A skipped revision contributes what it holds, having contributed nothing.
 
 1. ~ bin/changelogger: ~ main(): a skipped revision set previous_directory and went on, so its entry never reached the accumulator the next CHANGELOG is built from. Every revision after a skipped one was short by an entry apiece, and the last by as many as had been skipped. Skipping is the normal state, being what protects an entry written by hand, so this was the usual case rather than an edge of it.
