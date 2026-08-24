@@ -160,6 +160,33 @@ describe "changelogger" do
     _(changelog(0)).must_include 'written by hand'
   end
 
+  # A skipped revision contributed nothing to what the next one is built from, so
+  # every revision after one was short by an entry apiece.  Skipping is the normal
+  # state, being what protects an entry written by hand.
+  it "counts a skipped revision among what follows it" do
+    revision(0, script('0.0.0', PLAIN_METHOD))
+    revision(1, script('0.1.0', PLAIN_METHOD + MODIFIER_METHOD))
+    revision(2, script('0.2.0', PLAIN_METHOD + MODIFIER_METHOD + "def third(value)\n  value\nend\n"))
+    run_changelogger
+    File.delete(File.join(@root, '1', 'CHANGELOG'), File.join(@root, '2', 'CHANGELOG'))
+    run_changelogger
+    _(changelog(2).scan(/^0\.\d+\.\d+/).length).must_equal 3
+    _(changelog(1).scan(/^0\.\d+\.\d+/).length).must_equal 2
+  end
+
+  # What the skipped revision holds rather than what it would have generated: it
+  # is skipped because what it says has been written by hand, and that is what
+  # the revisions after it should carry.
+  it "carries a hand-written entry from a skipped revision into the ones after it" do
+    revision(0, script('0.0.0', PLAIN_METHOD))
+    revision(1, script('0.1.0', PLAIN_METHOD + MODIFIER_METHOD))
+    run_changelogger
+    File.write(File.join(@root, '0', 'CHANGELOG'), File.read(File.join(@root, '0', 'CHANGELOG')).sub(/^0\.0\.0.*$/, '0.0.0: written by hand.'))
+    File.delete(File.join(@root, '1', 'CHANGELOG'))
+    run_changelogger
+    _(changelog(1)).must_include '0.0.0: written by hand.'
+  end
+
   it "reports a change of the program name, which the structure alone does not carry" do
     revision(0, script('0.0.0', PLAIN_METHOD, name: 'thing'))
     revision(1, script('0.1.0', PLAIN_METHOD, name: 'other'), name: 'other')

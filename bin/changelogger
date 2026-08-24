@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 # changelogger
 
-# 20260823
-# 0.14.0
+# 20260824
+# 0.15.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -512,6 +512,23 @@ def process_subsequent_version(directory, index, previous_directory)
   format_entry(version, date, directory, items + unparsed, summary)
 end
 
+# The entries a CHANGELOG already holds, oldest last as write_changelog wants
+# them.  A block carries a date heading only where its date differs from the one
+# written after it, so the heading last seen stands until another is met.
+def entries_from(directory)
+  path = File.join(directory, 'CHANGELOG')
+  return [] unless File.exist?(path)
+  date = nil
+  File.read(path).sub(/\A# CHANGELOG\n\n/, '').split("\n\n\n").collect do |block|
+    if block =~ /\A## (\S+)\n\n(.*)\z/m
+      date = $1
+      {date: date, body: $2.rstrip}
+    else
+      {date: date, body: block.rstrip}
+    end
+  end.reverse
+end
+
 def main
   revisions_root
   cumulative_entries = []
@@ -519,6 +536,12 @@ def main
   version_directories.each_with_index do |directory, index|
     if changelog_exist?(directory)
       $stderr.puts "Skipping #{File.basename(directory)}: CHANGELOG already exists"
+      # What it holds, rather than nothing.  A skipped revision contributed no
+      # entry to the accumulator, so every revision after one was short by an
+      # entry apiece and the last was short by as many as had been skipped.
+      # Read from the file rather than regenerated, a revision being skipped
+      # precisely because what it says has been written by hand.
+      cumulative_entries = entries_from(directory)
       previous_directory = directory
       next
     end

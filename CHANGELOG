@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 20260824
+
+0.15.0: A skipped revision contributes what it holds, having contributed nothing.
+
+1. ~ bin/changelogger: ~ main(): a skipped revision set previous_directory and went on, so its entry never reached the accumulator the next CHANGELOG is built from. Every revision after a skipped one was short by an entry apiece, and the last by as many as had been skipped. Skipping is the normal state, being what protects an entry written by hand, so this was the usual case rather than an edge of it.
+2. + bin/changelogger: + entries_from(): the entries a CHANGELOG already holds, read back from the file. A revision is skipped precisely because what it says has been written by hand, so regenerating its entry for the accumulator would push the generated text into every revision after it. What it holds is cumulative, so it stands as the whole accumulator rather than being appended to one.
+3. ~ test/changelogger_test.rb: + two examples, run to 19. Against 0.14.0 both fail: one counts the entries three revisions carry with the first skipped, the other reads a hand-written summary out of a later revision's file.
+4. Met upon tap-audit's fifteen revisions, where revision 14's CHANGELOG came out holding its own entry alone and had to be rebuilt by hand.
+5. ~ bin/changelogger: /0.14.0/0.15.0/, and the date.
+
+
 ## 20260823
 
 0.14.0: + a date line carrying more than one date, the last being the completion date.
