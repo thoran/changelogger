@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## 20260906
+
+0.17.0: Handle two older layouts keeping the header and handle dotted dates.
+
+1. + find_self_contained(): <name>.rbd/<name>.rb, the retired self-contained layout, with its own lib/ inside. SimpleCSV's revisions 68 to 78 keep their header there and every one was written out as `## ????????`.
+2. + find_at_root(): the revision's root itself, where the earliest layouts kept the file alone. SimpleCSV's revisions 0 to 15 are a single csv2to.rb and 65 to 67 a CSVFile.rb loader, and all were ????????.
+3. + choose(): what find_library() did in choosing among a place's .rb files, so that the three places choose alike. Preferred is the file named for the revisions root; failing that the only one there; failing that, new, the one named as the header was in the revision before, a library keeping its name from one revision to the next far more often than it changes it. SimpleCSV's 60 to 64 hold CSVFile.rb beside Array.rb, Hash.rb, String.rb and Index.rb in lib/, none named for the root, and 59 before them is lib/csv_file.rb alone.
+4. + same_name?(): a name is the same regardless of case and with or without underscores, csv_file.rb having become CSVFile.rb without becoming another library. find_library() matched without regard to case already.
+5. + predecessor(), + previous_header_name(): the revision before and the header it resolved to, which is how choose() knows the name to look for.
+6. ~ find_binary(): the two new places after bin/ and lib/, so every project which already worked reads exactly what it read before; and the answer kept per directory, a revision's header being asked for from several places and by the revision after it.
+7. + DATE_LINE, ~ parse_date(): a date written with dots, 2010.03.25, and a multi-date line written so, `2010.05.27, 06.19, 08.16, 2011.02.17`, the dots being dropped before expand_dates() reads the elements; and a remark in parentheses after the date, `20061203 (0.4.4 - 6 incorrectly had 20061201)`, which is where a correction to a date was noted. SimpleCSV's 42 and 65 to 75 carry these.
+8. Met upon SimpleCSV's 84 revisions, where 36 headings came out ???????? and git-import-all parsed 49 entries for 84 revisions, every ???????? block having been merged into the dated one before it for want of a heading to separate them.
+9. ~ changelog_exist?(): files only. A directory whose name begins with changelog counted as a CHANGELOG and the revision was skipped, which the suite met at once: its temporary root is named changelogger..., and a .rbd named for that root is a directory named changelogger... too.
+10. ~ parse_version(): the date line is passed over, a dotted date having the shape of a version and standing above it. Read as it was, 65 to 67 and 69 came out versioned 2010.03.25 and 2010.05.21, and git-import-all would have titled their commits so. And a remark in parentheses after the version, `0.9.9 (in progress)`, is passed over as one after the date is: revision 5's version line carries one, so its block had no version line, and git-import-all merged it into the block before for want of one.
+11. ~ test/changelogger_test.rb: + eight examples, run to 32. Against 0.16.0 all eight fail.
+12. ~ bin/changelogger: /0.16.0/0.17.0/, and the date.
+
+
 ## 20260824
 
 0.16.0: An item names the file it was read from, as an entry written by hand does.

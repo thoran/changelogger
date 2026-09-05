@@ -287,4 +287,70 @@ it "escalates a multi-date header through day, month and year" do
   _(changelog(0)).must_include '## 20100112'
 end
 
+# 0.17.0.  The retired self-contained layout keeps the header at <name>.rbd/<name>.rb,
+# and until now nothing looked there, so every such revision was ????????.
+it "reads a header from a .rbd directory named for the revisions root" do
+  name = File.basename(@root)
+  directory = File.join(@root, '0', "#{name}.rbd")
+  FileUtils.mkdir_p(directory)
+  File.write(File.join(directory, "#{name}.rb"), script('0.9.0', PLAIN_METHOD, changes: "# Changes since 0.8:\n# 1. ~ from the .rbd.\n"))
+  run_changelogger
+  _(changelog(0)).must_include '~ from the .rbd.'
+  _(changelog(0)).wont_include '????????'
+end
+
+# The earliest layouts kept the file alone at the revision's root.
+it "reads a header sitting at the revision root" do
+  FileUtils.mkdir_p(File.join(@root, '0'))
+  File.write(File.join(@root, '0', 'thing.rb'), script('0.0.0', PLAIN_METHOD, changes: "# Changes:\n# 1. ~ from the root.\n"))
+  run_changelogger
+  _(changelog(0)).must_include '~ from the root.'
+  _(changelog(0)).wont_include '????????'
+end
+
+# Where lib/ holds several and none is named for the root, the one named as the
+# header was in the revision before is taken, regardless of case and underscores.
+it "reads a header by the name it had in the revision before" do
+  library_revision(0, script('0.6.0', PLAIN_METHOD), name: 'csv_file')
+  library_revision(1, script('0.6.1', PLAIN_METHOD, changes: "# Changes since 0.6:\n# 1. ~ from CSVFile.\n"), name: 'CSVFile')
+  library_revision(1, script('0.6.1', PLAIN_METHOD, changes: "# Changes since 0.6:\n# 1. ~ from Array.\n"), name: 'Array')
+  run_changelogger
+  _(changelog(1)).must_include '~ from CSVFile.'
+  _(changelog(1)).wont_include '~ from Array.'
+  _(changelog(1)).wont_include '????????'
+end
+
+# A date written with dots, another retired form.
+it "reads a dotted date" do
+  revision(0, script('0.0.0', PLAIN_METHOD, date: '2010.03.25'))
+  run_changelogger
+  _(changelog(0)).must_include '## 20100325'
+end
+
+it "escalates a dotted multi-date header through month and year" do
+  revision(0, script('0.0.0', PLAIN_METHOD, date: '2010.05.27, 06.19, 08.16, 2011.02.17'))
+  run_changelogger
+  _(changelog(0)).must_include '## 20110217'
+end
+
+# A remark in parentheses after the date is where a correction to it was noted.
+it "ignores a remark in parentheses after the date" do
+  revision(0, script('0.0.0', PLAIN_METHOD, date: '20061203 (0.4.4 - 6 incorrectly had 20061201)'))
+  run_changelogger
+  _(changelog(0)).must_include '## 20061203'
+  _(changelog(0)).wont_include '????????'
+end
+# A dotted date has the shape of a version and stands above it.
+it "takes the version below a dotted date rather than the date" do
+  revision(0, script('0.8.0', PLAIN_METHOD, date: '2010.03.25'))
+  run_changelogger
+  _(changelog(0)).must_match(/^0\.8\.0/)
+  _(changelog(0)).wont_match(/^2010\.03\.25/)
+end
+# A remark may follow the version in parentheses, as one may follow the date.
+it "ignores a remark in parentheses after the version" do
+  revision(0, script('0.9.9 (in progress)', PLAIN_METHOD))
+  run_changelogger
+  _(changelog(0)).must_match(/^0\.9\.9/)
+end
 end

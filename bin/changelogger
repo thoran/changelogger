@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 # changelogger
 
-# 20260824
-# 0.16.0
+# 20260905
+# 0.17.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -11,8 +11,12 @@
 #
 # The header read is bin/<anything> where there is one, that being what a program
 # carries, and lib/<revisions root>.rb after it, that being where a library keeps
-# its own.  --header-file names it outright, which is how a project holding both
-# says which it means.
+# its own.  After those, the two places older layouts kept it: <revisions
+# root>.rbd/<revisions root>.rb, the retired self-contained layout, and the
+# revision's root itself.  Where a place holds several .rb files and none is named
+# for the root, the one named as the header was in the revision before is taken.
+# --header-file names it outright, which is how a project holding both says which
+# it means.
 #
 # Tiers:
 # 1. If the header has Changes: comments, use them directly.
@@ -78,20 +82,62 @@ def version_directories
   )
 end
 
+# Files only: a directory whose name begins with changelog is not one.
 def changelog_exist?(directory)
-  Dir["#{directory}/CHANGELOG*"].any? || Dir["#{directory}/changelog*"].any?
+  (Dir["#{directory}/CHANGELOG*"] + Dir["#{directory}/changelog*"]).any?{|entry| File.file?(entry)}
+end
+
+# A name is the same regardless of case and with or without underscores:
+# csv_file.rb became CSVFile.rb without becoming another library.
+def same_name?(a, b)
+  a.delete('_').casecmp?(b.delete('_'))
+end
+
+def revisions_root_name
+  File.basename(revisions_root)
+end
+
+def predecessor(directory)
+  index = version_directories.index(directory)
+  index && index > 0 ? version_directories[index - 1] : nil
+end
+
+# The name the header file had in the revision before, a library keeping its name
+# from one revision to the next far more often than it changes it.
+def previous_header_name(directory)
+  previous = predecessor(directory)
+  return nil unless previous
+  binary = find_binary(previous)
+  binary && File.basename(binary, '.rb')
+end
+
+# Among the .rb files of one place: preferred is the file named for the revisions
+# root; failing that the only one there, there being nothing to choose between two;
+# failing that the one named as the header was in the revision before.
+def choose(entries, directory)
+  named = entries.detect{|entry| same_name?(File.basename(entry, '.rb'), revisions_root_name)}
+  return named if named
+  return entries.first if entries.length == 1
+  previous_name = previous_header_name(directory)
+  previous_name && entries.detect{|entry| same_name?(File.basename(entry, '.rb'), previous_name)}
 end
 
 # A library keeps its header in lib/, named for the project rather than sitting alone
-# in bin/.  Preferred is the name the revisions root carries; failing that, the only
-# .rb file there, there being nothing to choose between two.
+# in bin/.
 def find_library(directory)
   lib_dir = File.join(directory, 'lib')
   return nil unless Dir.exist?(lib_dir)
-  name = File.basename(revisions_root)
-  entries = Dir["#{lib_dir}/*.rb"]
-  named = entries.detect{|entry| File.basename(entry, '.rb').casecmp?(name)}
-  named || (entries.first if entries.length == 1)
+  choose(Dir["#{lib_dir}/*.rb"], directory)
+end
+
+# The retired self-contained layout: <name>.rbd/<name>.rb, with its own lib/ inside.
+def find_self_contained(directory)
+  choose(Dir["#{directory}/*.rbd/*.rb"], directory)
+end
+
+# The revision's root itself, which is where the earliest layouts kept the file.
+def find_at_root(directory)
+  choose(Dir["#{directory}/*.rb"], directory)
 end
 
 def find_bin(directory)
@@ -101,13 +147,20 @@ def find_bin(directory)
 end
 
 # Given a header file, that settles it.  Otherwise bin/ is looked to first, which is
-# what a program carries, and lib/ after it.
+# what a program carries, lib/ after it, and the two older places after that.  The
+# answer is kept, a revision's header being asked for from several places and by the
+# revision after it.
 def find_binary(directory)
-  if header_file
-    path = File.join(directory, header_file)
-    return File.exist?(path) ? path : nil
-  end
-  find_bin(directory) || find_library(directory)
+  @binaries ||= {}
+  return @binaries[directory] if @binaries.key?(directory)
+  @binaries[directory] = (
+    if header_file
+      path = File.join(directory, header_file)
+      File.exist?(path) ? path : nil
+    else
+      find_bin(directory) || find_library(directory) || find_self_contained(directory) || find_at_root(directory)
+    end
+  )
 end
 
 def read_header_comments(filepath)
@@ -129,9 +182,13 @@ def parse_name(comments)
   nil
 end
 
+# A dotted date, 2010.03.25, has the shape of a version and stands above it, so
+# the date line is passed over.  A remark may follow the version in parentheses,
+# `0.9.9 (in progress)`, as one may follow the date.
 def parse_version(comments)
   comments.each do |line|
-    return $1 if line =~ /\A# (\d+\.\d+\.\d+)\s*\z/
+    next if line =~ DATE_LINE
+    return $1 if line =~ /\A# (\d+\.\d+\.\d+)\s*(?:\(.*\))?\s*\z/
   end
   nil
 end
@@ -158,9 +215,14 @@ def expand_dates(text)
   dates.last
 end
 
+# A date may be written with dots, 2010.03.25, another retired form, and the dots
+# are dropped before the elements are read.  A remark may follow in parentheses,
+# which is where a correction to the date was noted.
+DATE_LINE = /\A# (\d{4}\.?\d{2}\.?\d{2}(?:\s*,\s*[\d.]{1,10})*)\s*(?:\(.*\))?\s*\z/
+
 def parse_date(comments)
   comments.each do |line|
-    return expand_dates($1) if line =~ /\A# (\d{8}(?:\s*,\s*\d{1,8})*)\s*\z/
+    return expand_dates($1.delete('.')) if line =~ DATE_LINE
   end
   nil
 end
