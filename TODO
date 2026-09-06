@@ -1,4 +1,4 @@
-# TODO.txt
+# TODO
 
 1. A force switch, so that an existing CHANGELOG can be overwritten rather than the directory being skipped.
 2. Take the binary's name from the CHANGELOG, rather than assuming the sole entry in bin/.
