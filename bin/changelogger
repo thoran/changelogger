@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 # changelogger
 
-# 20260905
-# 0.17.0
+# 20260906
+# 0.18.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -509,6 +509,20 @@ def initial_other_files(directory)
   non_binary_files(directory).map{|f| "+ #{f}"}
 end
 
+# A first revision is summarised by what it holds, the header file first and the
+# rest after it, as a first commit written by hand says `+ .gitignore`.  Beyond
+# three the rest are counted, a subject line being no place for a manifest.
+def holdings_summary(binary, directory)
+  files = []
+  files << binary.sub("#{directory}/", '') if binary
+  files += (non_binary_files(directory) - files).sort
+  return nil if files.empty?
+  named = files.first(3)
+  rest = files.length - named.length
+  summary = "+ #{named.join(', ')}"
+  rest > 0 ? "#{summary} and #{rest} more" : summary
+end
+
 # One heading per date rather than one per version.  Nine versions released
 # upon one day wrote "## 20260304" nine times, which asserts nine occasions
 # where there was one; under the dawn rule a date is a day's work, and the
@@ -550,7 +564,7 @@ def process_initial_version(directory)
     structure = extract_structure(binary)
     items = within(binary, directory, inventory_items(structure))
     items += initial_other_files(directory)
-    summary = "(Initial version)"
+    summary = holdings_summary(binary, directory)
   end
   format_entry(version, date, directory, items + unparsed, summary)
 end

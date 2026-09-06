@@ -353,4 +353,21 @@ it "ignores a remark in parentheses after the version" do
   run_changelogger
   _(changelog(0)).must_match(/^0\.9\.9/)
 end
+# 0.18.0.  A first revision is summarised by what it holds, as a first commit
+# written by hand says `+ .gitignore`, and never by a placeholder.
+it "summarises the first revision by what it holds" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  run_changelogger
+  _(changelog(0)).must_include '0.0.0: + bin/thing'
+  _(changelog(0)).wont_include 'Initial version'
+end
+
+# The header file first, the rest in name order, and beyond three a count.
+it "names three of what a first revision holds and counts the rest" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  FileUtils.mkdir_p(File.join(@root, '0', 'test'))
+  %w[c.csv a.csv b.csv].each{|name| File.write(File.join(@root, '0', 'test', name), "1,2\n")}
+  run_changelogger
+  _(changelog(0)).must_include '0.0.0: + bin/thing, test/a.csv, test/b.csv and 1 more'
+end
 end

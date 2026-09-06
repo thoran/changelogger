@@ -2,6 +2,14 @@
 
 ## 20260906
 
+0.18.0: Summarise a first revision by what it holds.
+
+1. + holdings_summary(): the files a first revision holds, the header file first and the rest after it in name order, as `+ bin/thing, test/a.csv, test/b.csv`; beyond three the rest are counted, `and 2 more`, a subject line being no place for a manifest. This is the form a first commit written by hand already takes, `+ .gitignore`.
+2. ~ process_initial_version(): tier 3's summary was the placeholder `(Initial version)`, which says nothing about the revision and became the commit subject under git-import-all. Upon SimpleCSV it was also untrue, the import sitting on two commits from 2011, so the third commit in the repository announced itself as the first.
+3. ~ test/changelogger_test.rb: + two examples, run to 34. Against 0.17.0 both fail.
+4. ~ bin/changelogger: /0.17.0/0.18.0/, and the date.
+
+
 0.17.0: Handle two older layouts keeping the header and handle dotted dates.
 
 1. + find_self_contained(): <name>.rbd/<name>.rb, the retired self-contained layout, with its own lib/ inside. SimpleCSV's revisions 68 to 78 keep their header there and every one was written out as `## ????????`.
