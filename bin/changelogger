@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 # changelogger
 
-# 20260906
-# 0.18.0
+# 20261005
+# 0.18.1
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing

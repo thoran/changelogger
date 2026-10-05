@@ -1,4 +1,16 @@
-# CHANGELOG
+# changelogger/CHANGELOG
+
+## 20261005
+
+0.18.1: Housekeeping: TODO.txt --> TODO, three items added to it, and the CHANGELOG's formatting.
+
+1. ~ TODO.txt --> TODO, following http 0.18.0.
+2. ~ TODO: + 5, a tier for a snapshot, and + 6, an entry's date taken from the latest header in the tree, both met upon the SimpleCSV import.
+3. ~ TODO: + 7, multiple dates in a CHANGELOG heading, which both changelogger and git-import-all refuse.
+4. ~ CHANGELOG: /# CHANGELOG/# changelogger\/CHANGELOG/, and one blank line rather than two between versions beneath one date heading.
+5. None of these changes what changelogger does, and the formula installs bin/changelogger alone, so what is installed differs only in its header.
+6. ~ bin/changelogger: /0.18.0/0.18.1/, and the date.
+
 
 ## 20260906
 
@@ -8,7 +20,6 @@
 2. ~ process_initial_version(): tier 3's summary was the placeholder `(Initial version)`, which says nothing about the revision and became the commit subject under git-import-all. Upon SimpleCSV it was also untrue, the import sitting on two commits from 2011, so the third commit in the repository announced itself as the first.
 3. ~ test/changelogger_test.rb: + two examples, run to 34. Against 0.17.0 both fail.
 4. ~ bin/changelogger: /0.17.0/0.18.0/, and the date.
-
 
 0.17.0: Handle two older layouts keeping the header and handle dotted dates.
 
@@ -37,7 +48,6 @@
 5. ~ test/changelogger_test.rb: + five examples, run to 24. Against 0.15.0 the three which assert a prefix fail; the two which assert its absence pass either way, there being no prefix to find, and are guards rather than regressions.
 6. ~ bin/changelogger: /0.15.0/0.16.0/
 
-
 0.15.0: A skipped revision contributes what it holds, having contributed nothing.
 
 1. ~ bin/changelogger: ~ main(): a skipped revision set previous_directory and went on, so its entry never reached the accumulator the next CHANGELOG is built from. Every revision after a skipped one was short by an entry apiece, and the last by as many as had been skipped. Skipping is the normal state, being what protects an entry written by hand, so this was the usual case rather than an edge of it.
@@ -57,7 +67,6 @@
 4. + two examples, run to 17, both failing against 0.13.0.
 5. ~ bin/changelogger: /0.13.0/0.14.0/
 
-
 0.13.0: + a library's header, read from lib/ where there is no bin/, and --header-file naming one outright.
 
 1. + find_library(): a library keeps its header in lib/, named for the project, where a program carries one alone in bin/. Preferred is the file named for the revisions root, matched without regard to case; failing that the only .rb there, two being nothing to choose between. Until now changelogger read bin/ or nothing, so every library fell to tier 2 and was written out as `## ????????` with no version, no summary and a bare list of files changed.
@@ -67,14 +76,12 @@
 5. + four examples, run to 15. Against 0.12.1 the two library ones fail and the other two pass, so the first two catch this and the second two guard what was already right — the bin/ preference, and the section header which 0.12.1 fixed and nothing had covered.
 6. ~ bin/changelogger: /0.12.1/0.13.0/
 
-
 0.12.1: A section header ends the Changes section whether or not text follows its colon.
 
 1. ~ parse_changes(): a section header stopped the Changes section only when nothing followed its colon, the test being `/\A# [A-Z][A-Za-z ]*:\s*\z/`. `# Todo:` matched and stopped it. `# History: I realised when wanting to dump all bookmarks...` did not, so that paragraph and everything below it was read as part of the Changes section and written out as unparsed `?` items, four of them in every entry the section reached. Anchoring upon the colon alone stops both.
 2. Met upon the Browser library, whose lib/Browser.rb carries Changes, then History, then Todo. changelogger cannot read a library's header at all — it looks in bin/ — so this was reached by putting that header where bin/ is looked for, which is what 0.13.0 is for.
 3. Nothing which already worked moves: run before and after against dump_browser_history_to_csv and open_browser_history_from_csv, sixteen revisions between them, the CHANGELOG written is identical either way. The eleven examples pass.
 4. ~ bin/changelogger: /0.12.0/0.12.1/
-
 
 0.12.0: + test/, MiniTest spec style, running against revisions built for each example.
 
@@ -83,7 +90,6 @@
 3. The other nine pass against 0.10.1, pinning behaviour which was already right: tier 1 taking a Changes section as written, tier 3 inventorying the first revision, methods added and removed and altered, the cumulative order, the skip which leaves a hand-written entry alone, and the name change tier 2 cannot see from structure. Guards rather than regressions, and worth saying which is which.
 4. No Rakefile, the tap's other programs having none and this being run as `ruby test/changelogger_test.rb`. moby carries one because moby is a gem.
 5. ~ bin/changelogger: /0.11.0/0.12.0/
-
 
 0.11.0: Read a method's end as its own, a modifier having been counted as opening a block.
 
@@ -100,9 +106,6 @@
 
 1. + LICENSE: the MIT text, copyright 2026 thoran. The year is that of the first commit. The README has answered "MIT" under a heading of its own while the repository carried no licence text at all, so anyone taking it at its word had nothing to read and nothing to comply with.
 2. ~ bin/changelogger: /0.10.0/0.10.1/, and the date.
-
-
-## 20260821
 
 0.10.0: Write one date heading for the versions which share it.
 
@@ -122,7 +125,6 @@
 3. The enumerator guard is what tells a wrapped line from a sub-item. exitor's i to iii under its item 9 begin something of their own rather than continuing it, and are still reported rather than being run together into a single line, which leaves the choice where it belongs.
 4. ~ README.md: Say that an item may be continued on the next line.
 
-
 0.8.0: Take a prose line where a summary belongs as the summary.
 
 1. + summary_line?(): True where the entry has neither a summary nor any items yet, and the line does not begin with a digit. The line after the section's heading, or after a marker carrying no summary of its own, is that entry's summary. startor writes every one of its entries that way and had five of them reported as not understood.
@@ -130,14 +132,12 @@
 3. The two guards are what keep it from over-reaching. An entry which already has items is past the place a summary belongs, so exitor's sub-items are still marked rather than swallowed. Prose does not begin with a digit, so should2expect's "0: Handle verbs ending in y.", which is a marker written the wrong way, is still marked rather than taken for a summary and quietly half-corrected.
 4. ~ README.md: Say where a summary may be written.
 
-
 0.7.0: Take a Changes section carrying no marker as one entry.
 
 1. + begin_entry(): Creates an entry and appends it to the list, both the marker branch and the item branch now needing to.
 2. ~ parse_changes(): An item met before any marker begins an entry of its own, rather than being dropped by the "&& current_entry" guard, which is gone. A marker tells one version's items from another's within a cumulative section, so a section covering a single version needs none and a good many carry none: jira's 0.2.0 and 0.3.0, startor's first entry, should2expect's whole section. They were reported as not understood at best, and lost at worst.
 3. ~ parse_changes(): Lines met before any entry began attach to the first of them, so that they surface when that entry is the one returned. Without this the orphans went missing the moment the items began an entry of their own, which is the thing 0.6.0 exists to prevent: should2expect's "0: Handle verbs ending in y." went again without a word.
 4. ~ README.md: Say that a section covering a single version carries no marker.
-
 
 0.6.0: Mark what the Changes section holds and cannot be parsed, rather than dropping it.
 
@@ -149,19 +149,16 @@
 6. The lines attach to the entry current when they are met, and orphans, met before any marker, to the run. The Changes section is cumulative across a minor series, so a version's header carries the earlier markers' lines as well as its own, and holding them all against the returned entry put exitor's 0.2.0 sub-items into the entries for 0.2.1 and 0.2.2 too, three versions reporting the same three lines.
 7. ~ README.md: Say what happens to a line which cannot be parsed.
 
-
 0.5.2: Take the parentheses off a marker's summary.
 
 1. + marker_summary(): Strip a wrapping pair of parentheses, and return nil where nothing is left. The older headers write the summary as "-/0 (Text.)" and the newer ones as "-/0: Text.", and the parentheses are the marker's punctuation rather than part of what it says. exitor's entries were coming out as "0.2.2: (Detect full country names correctly.)" against a commit message of the same line without them.
 2. ~ parse_changes(): Use marker_summary(), which also absorbs the empty-summary check that followed the assignment.
-
 
 0.5.1: End the Changes section at any heading, not at one of four named ones.
 
 1. ~ parse_changes(): /(Discussion|Notes|Todo|Examples):/[A-Z][A-Za-z ]*:/, anchored to the end of the line so as it matches a heading and not an item which happens to contain a colon. Markers, numbered items and blank lines are all matched before this branch is reached, so the only lines it can see are headings.
 2. The four named sections were a closed list against an open set. gem-homepage's header says "Note:", singular, and so was not ended: its numbered line was taken as an item and written into the entry for 0.2.0. Usage: and Description: appear in other repositories and would have done the same.
 3. ~ README.md: Say that any further heading ends the section, rather than naming four.
-
 
 0.5.0: Report a change of the program's name, which the structural diff could not see.
 
@@ -181,7 +178,6 @@
 1. ~ README.md: + The Changes section, being cumulative across one minor series and restarted at each new one so that it cannot grow without bound, what "Changes since 0.5:" names, what the -/0 and n/n+1 markers mean and why the dash, that items are numbered continuously across the whole section, that only the last marker's items become the entry, and what ends the section. It was the least recoverable part of the format, being visible in the headers but nowhere stated.
 2. ~ README.md: Name the tiers where they are described. The script header calls them tiers, and the README twice refers to them by number, but the description itself never introduced the term.
 
-
 0.4.0: Write the CHANGELOG in the form the repositories already use.
 
 1. ~ format_entry(): A "## <date>" heading, with the version and summary on the first line of the body and the items unindented, in place of a "<version> - <date>" heading with indented items. git-import-all reads this directly, so the output no longer wants converting by hand before an import.
@@ -189,7 +185,6 @@
 3. + heading_date(): Warn on stderr naming the revision, and write ???????? where the script header carries no date, rather than inventing a date or stopping the run. The output is a seed to be edited, so an obvious hole in it is honest.
 4. + summary_line()
 5. - version_label(): The -/0 and n/n+1 markers exist because a Changes section spans a whole minor series, restarted at each one to keep it from growing without bound. Once every version has its own dated entry there is nothing left for them to disambiguate. They are still parsed out of the headers, merely no longer written.
-
 
 0.3.0: Add a README and a TODO, and retire the Changes section from the script header.
 
@@ -210,7 +205,6 @@
 0.1.0: Handle when the colon is missing on the summary line. (I was going to leave it off here, so as to be ironic.)
 
 1. ~ parse_changes(): + '?'
-
 
 0.0.0: Extract changelog information from numbered revisions and write a cumulative CHANGELOG into each.
 
