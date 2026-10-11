@@ -2,7 +2,7 @@
 # changelogger
 
 # 20261011
-# 0.22.0
+# 0.23.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -184,9 +184,13 @@ def read_header_comments(filepath)
   comments
 end
 
+# The name is the first comment line holding a single word.  A header without one
+# would give up a section's heading instead, `# Changes:`, so a word ending in a
+# colon is passed over, being a heading rather than a name.
 def parse_name(comments)
   comments.each do |line|
     next if line =~ /\A# \d/
+    next if line =~ /:\s*\z/
     return $1 if line =~ /\A# (\S+)\s*\z/
   end
   nil

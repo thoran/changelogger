@@ -2,6 +2,15 @@
 
 ## 20261011
 
+0.23.0: Take no section heading for the program's name where a header has no name line.
+
+The name is the first comment line holding a single word, which in a header carrying one is the program's own, `# redback`. A header without one gave up the first heading which stood alone instead: Redback's 0.2 headers open with `# Date:` and then `# Changes: `, so their name was read as `Changes:`, and 0.3.0, the first revision to carry `# redback`, was written with a change of name, `1. /Changes:/redback/`, which went into its commit subject and into the 127 CHANGELOGs after it.
+
+1. ~ parse_name(): a word ending in a colon is passed over, being a section's heading rather than a name.
+2. Over Redback's 272 revisions, only 0.3.0's entry changes, and no CHANGELOG holds `/Changes:/`. Over SimpleCSV's 84, no entry changes.
+3. ~ test/changelogger_test.rb: + one example, run to 50, failing against 0.22.0.
+4. ~ bin/changelogger: /0.22.0/0.23.0/
+
 0.22.0: Set aside a date which is no date at all, such as 20060631, and take the modification time in its place.
 
 A header's date was taken as written, real or not. Redback's 0.6.1 states `# Date: 20060631`, June's thirty-first, which changelogger wrote as its heading; git-import-all could not parse it, set no author date, and the commit took the day of the import. The file was made and last saved on 20060831 at 14:57, its header having been copied from 0.6.0's `20060629` with the day changed and the month not.

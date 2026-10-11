@@ -521,4 +521,14 @@ it "keeps a date which is one, the last of February in a leap year among them" d
   _(changelog(0)).must_include '## 20080229'
   _(output).wont_include 'is not a date'
 end
+
+# 0.23.0.  A header without a name line gave up its Changes heading as the name, so
+# the revision after it, which has one, reported a change of name from Changes:.
+it "takes no section heading for a name where the header has no name line" do
+  revision(0, "#!/usr/bin/env ruby\n# Date: 20060620\n#\n# Changes: \n# 1. A few...\n\n" + PLAIN_METHOD)
+  revision(1, script('0.3.0', PLAIN_METHOD + MODIFIER_METHOD, name: 'redback'))
+  run_changelogger
+  _(changelog(1)).wont_include '/Changes:/'
+  _(changelog(1)).must_include '+ guarded()'
+end
 end
