@@ -370,4 +370,12 @@ it "names three of what a first revision holds and counts the rest" do
   run_changelogger
   _(changelog(0)).must_include '0.0.0: + bin/thing, test/a.csv, test/b.csv and 1 more'
 end
+# 0.18.2.  A version of four parts was read as none, so its entry stated no version
+# and its subject was left empty.
+it "reads a version of more than three parts" do
+  revision(0, script('0.5.11', PLAIN_METHOD))
+  revision(1, script('0.6.0.0', PLAIN_METHOD + MODIFIER_METHOD))
+  run_changelogger
+  _(changelog(1)).must_match(/^0\.6\.0\.0(:|$)/)
+end
 end

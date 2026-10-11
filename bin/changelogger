@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 # changelogger
 
-# 20261005
-# 0.18.1
+# 20261011
+# 0.18.2
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -184,11 +184,12 @@ end
 
 # A dotted date, 2010.03.25, has the shape of a version and stands above it, so
 # the date line is passed over.  A remark may follow the version in parentheses,
-# `0.9.9 (in progress)`, as one may follow the date.
+# `0.9.9 (in progress)`, as one may follow the date.  A version may have more than
+# three parts, `0.6.0.0`, as one or two of the older headers do.
 def parse_version(comments)
   comments.each do |line|
     next if line =~ DATE_LINE
-    return $1 if line =~ /\A# (\d+\.\d+\.\d+)\s*(?:\(.*\))?\s*\z/
+    return $1 if line =~ /\A# (\d+(?:\.\d+){2,})\s*(?:\(.*\))?\s*\z/
   end
   nil
 end

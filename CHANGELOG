@@ -1,5 +1,15 @@
 # changelogger/CHANGELOG
 
+## 20261011
+
+0.18.2: Read a version of more than three parts.
+
+1. ~ parse_version(): a version of four parts, `0.6.0.0`, was read as none, the pattern wanting exactly three. Its entry stated no version, and with no summary of its own its subject line was left empty, so the entry began with a blank line which its date heading then stood above alone. SimpleCSV's revision 59 is the one so stated among its 84, and Files' revision 15 is another; git-import-all took 59's first item for its subject. Two parts are not read as a version, a bare comment of two numbers being as likely something else.
+2. Wanted before the snapshot tier, which takes a revision stating no new version, after a version has been stated, for a snapshot: 59, being read as stating none, was taken for one.
+3. ~ test/changelogger_test.rb: + one example, run to 35, failing against 0.18.1.
+4. ~ bin/changelogger: /0.18.1/0.18.2/
+
+
 ## 20261005
 
 0.18.1: Housekeeping: TODO.txt --> TODO, three items added to it, and the CHANGELOG's formatting.
