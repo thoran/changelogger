@@ -2,6 +2,13 @@
 
 ## 20261011
 
+0.21.0: Read a date labelled `# Date: 20051014`, the oldest form a header's date was written in.
+
+1. ~ DATE_LINE: + an optional `Date:` before the date. Such a line was passed over, so 0.20.0 took the header file's modification time in its place, which is near the date the header states but is not it: a file saved again after midnight, or days later, took that day instead. Redback's revisions 26 to 251 write their dates so, 226 of them, and 62 came out a day or more from what their headers say.
+2. Over Redback's 272 revisions, only the 26 with no header now fall back upon a modification time.
+3. ~ test/changelogger_test.rb: + two examples, run to 46. Against 0.20.0 the one reading the labelled date fails; the one reading the version below it passes either way, being a guard.
+4. ~ bin/changelogger: /0.20.0/0.21.0/
+
 0.20.0: Take a revision's date from its header file's modification time where the header states none.
 
 A header stating no date was written out as `## ????????`, which git-import-all does not recognise as a heading, so a tree holding one refused to import until every such date had been filled in by hand. Redback's first 26 revisions, from August 2005, have no header at all, and their files still carry the times they were last saved.

@@ -476,4 +476,20 @@ it "writes ???????? for a revision holding nothing to take a date from" do
   _(changelog(0)).must_include '## ????????'
   _(output).must_include 'no file to take one from'
 end
+
+# 0.21.0.  The oldest headers label the date, which was passed over, so the file's
+# modification time was taken in its place.
+it "reads a date labelled Date:" do
+  revision(0, script('0.0.0', PLAIN_METHOD, date: 'Date: 20051014'))
+  File.utime(Time.local(2005, 10, 15), Time.local(2005, 10, 15), File.join(@root, '0', 'bin', 'thing'))
+  output, _status = run_changelogger
+  _(changelog(0)).must_include '## 20051014'
+  _(output).wont_include 'modification time'
+end
+
+it "reads the version below a date labelled Date:" do
+  revision(0, script('0.3.5', PLAIN_METHOD, date: 'Date: 20060621'))
+  run_changelogger
+  _(changelog(0)).must_match(/^0\.3\.5/)
+end
 end

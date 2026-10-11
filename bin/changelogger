@@ -2,7 +2,7 @@
 # changelogger
 
 # 20261011
-# 0.20.0
+# 0.21.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -225,8 +225,9 @@ end
 
 # A date may be written with dots, 2010.03.25, another retired form, and the dots
 # are dropped before the elements are read.  A remark may follow in parentheses,
-# which is where a correction to the date was noted.
-DATE_LINE = /\A# (\d{4}\.?\d{2}\.?\d{2}(?:\s*,\s*[\d.]{1,10})*)\s*(?:\(.*\))?\s*\z/
+# which is where a correction to the date was noted.  And it may be labelled,
+# `# Date: 20051014`, the oldest form, written before the date stood alone.
+DATE_LINE = /\A# (?:Date:\s*)?(\d{4}\.?\d{2}\.?\d{2}(?:\s*,\s*[\d.]{1,10})*)\s*(?:\(.*\))?\s*\z/
 
 def parse_date(comments)
   comments.each do |line|
