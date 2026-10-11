@@ -2,6 +2,13 @@
 
 ## 20261011
 
+0.21.1: A section's heading ends the Changes section above it when it holds a hyphen, as `# Ad-hoc ideas:` does.
+
+1. + SECTION_HEADING, ~ parse_changes(): a heading was letters and spaces before its colon, so `# Ad-hoc ideas:` did not end the Changes section above it. The heading was written as a `?` item and every idea beneath it as a change: Redback's 0.4.8 gained `5. Roll-in the visited stuff to passes_muster` among what it did. 78 of Redback's revisions carry that heading after their Changes, and 63 of their entries were so swollen; its warnings for what was not understood fell from 91 to 16, those left being its own `#5.` and `# 40` written without the space or the stop.
+2. Over SimpleCSV's 84 revisions, no entry changes.
+3. ~ test/changelogger_test.rb: + one example, run to 47, failing against 0.21.0.
+4. ~ bin/changelogger: /0.21.0/0.21.1/
+
 0.21.0: Read a date labelled `# Date: 20051014`, the oldest form a header's date was written in.
 
 1. ~ DATE_LINE: + an optional `Date:` before the date. Such a line was passed over, so 0.20.0 took the header file's modification time in its place, which is near the date the header states but is not it: a file saved again after midnight, or days later, took that day instead. Redback's revisions 26 to 251 write their dates so, 226 of them, and 62 came out a day or more from what their headers say.

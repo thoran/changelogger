@@ -492,4 +492,15 @@ it "reads the version below a date labelled Date:" do
   run_changelogger
   _(changelog(0)).must_match(/^0\.3\.5/)
 end
+
+# 0.21.1.  A hyphen in a section's heading kept it from ending the Changes section,
+# so what followed it was taken for changes.
+it "ends the Changes section at a heading holding a hyphen" do
+  revision(0, script('0.4.7', PLAIN_METHOD))
+  revision(1, script('0.4.8', PLAIN_METHOD, changes: "# Changes:\n# 1. ~ the only change.\n#\n# Ad-hoc ideas:\n# 1. Roll the visited stuff into passes_muster.\n"))
+  run_changelogger
+  _(changelog(1)).must_include '~ the only change.'
+  _(changelog(1)).wont_include 'Roll the visited stuff'
+  _(changelog(1)).wont_include '? Ad-hoc ideas:'
+end
 end

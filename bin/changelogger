@@ -2,7 +2,7 @@
 # changelogger
 
 # 20261011
-# 0.21.0
+# 0.21.1
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -269,6 +269,10 @@ def continuation_line?(entry, line)
   line !~ /\A#\s+(\d+|[ivx]+|[a-z])[.)]\s/
 end
 
+# A section's heading ends the Changes section above it, `# Todo:` or `# Ad-hoc
+# ideas:`, a hyphenated word being as much a heading's as any other.
+SECTION_HEADING = /\A# [A-Z][A-Za-z -]*:/
+
 def parse_changes(comments)
   in_changes = false
   entries = []
@@ -288,7 +292,7 @@ def parse_changes(comments)
       current_entry[:items] << $1.strip
     elsif line =~ /\A#\s*\z/ || line.strip.empty?
       next
-    elsif line =~ /\A# [A-Z][A-Za-z ]*:/
+    elsif line =~ SECTION_HEADING
       break
     elsif line !~ /\A#/
       break
