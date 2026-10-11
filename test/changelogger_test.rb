@@ -232,150 +232,213 @@ describe "changelogger" do
     run_changelogger
     _(changelog(1)).must_include '1. /thing/other/'
   end
-# 0.13.0.  A library has no bin/, and its header is read from lib/ instead.
-it "reads a library header from lib/" do
-  library_revision(0, script('0.0.0', PLAIN_METHOD))
-  library_revision(1, script('0.1.0', PLAIN_METHOD + MODIFIER_METHOD, changes: "# Changes since 0.0:\n# 1. + guarded(), for the empty case.\n"))
+
+  # 0.13.0.  A library has no bin/, and its header is read from lib/ instead.
+  it "reads a library header from lib/" do
+    library_revision(0, script('0.0.0', PLAIN_METHOD))
+    library_revision(1, script('0.1.0', PLAIN_METHOD + MODIFIER_METHOD, changes: "# Changes since 0.0:\n# 1. + guarded(), for the empty case.\n"))
+    run_changelogger
+    _(changelog(1)).must_include '+ guarded(), for the empty case.'
+  end
+
+  # Where the library is not named for the revisions root there is nothing to guess
+  # from, and the switch is how it is said.
+  it "reads the header named by --header-file" do
+    library_revision(0, script('0.0.0', PLAIN_METHOD), name: 'Otherwise')
+    library_revision(1, script('0.1.0', PLAIN_METHOD, changes: "# Changes since 0.0:\n# 1. ~ named outright.\n"), name: 'Otherwise')
+    run_changelogger('--header-file', 'lib/Otherwise.rb')
+    _(changelog(1)).must_include '~ named outright.'
+  end
+
+  # bin/ is looked to first, a program being what changelogger was written for.
+  it "prefers bin/ where a project holds both" do
+    revision(0, script('0.0.0', PLAIN_METHOD))
+    revision(1, script('0.1.0', PLAIN_METHOD, changes: "# Changes since 0.0:\n# 1. ~ from bin.\n"))
+    library_revision(1, script('0.1.0', PLAIN_METHOD, changes: "# Changes since 0.0:\n# 1. ~ from lib.\n"))
+    run_changelogger
+    _(changelog(1)).must_include '~ from bin.'
+    _(changelog(1)).wont_include '~ from lib.'
+  end
+
+  # A section header carrying text after its colon ends the Changes section, which
+  # 0.12.1 fixed and nothing had covered.
+  it "ends the Changes section at a section header with text after it" do
+    revision(0, script('0.0.0', PLAIN_METHOD))
+    revision(1, script('0.1.0', PLAIN_METHOD, changes: "# Changes since 0.0:\n# 1. ~ the only item.\n\n# History: this paragraph is not a change.\n"))
+    run_changelogger
+    _(changelog(1)).must_include '~ the only item.'
+    _(changelog(1)).wont_include 'this paragraph is not a change.'
+  end
+
+  # 0.14.0.  A date line may carry more than one date, the work having spanned days,
+  # and the last of them is the completion date.  A retired form, met when reading
+  # older headers, which until now wrote ???????? in the heading.
+  it "takes the last date of a multi-date header" do
+    revision(0, script('0.0.0', PLAIN_METHOD, date: '20221203, 04, 05'))
+    run_changelogger
+    _(changelog(0)).must_include '## 20221205'
+    _(changelog(0)).wont_include '????????'
+  end
+
+  # An element escalates against the one before it: two digits a day, four MMDD,
+  # eight a date outright.
+  it "escalates a multi-date header through day, month and year" do
+    revision(0, script('0.0.0', PLAIN_METHOD, date: '20091218, 19, 20100112'))
+    run_changelogger
+    _(changelog(0)).must_include '## 20100112'
+  end
+
+  # 0.17.0.  The retired self-contained layout keeps the header at <name>.rbd/<name>.rb,
+  # and until now nothing looked there, so every such revision was ????????.
+  it "reads a header from a .rbd directory named for the revisions root" do
+    name = File.basename(@root)
+    directory = File.join(@root, '0', "#{name}.rbd")
+    FileUtils.mkdir_p(directory)
+    File.write(File.join(directory, "#{name}.rb"), script('0.9.0', PLAIN_METHOD, changes: "# Changes since 0.8:\n# 1. ~ from the .rbd.\n"))
+    run_changelogger
+    _(changelog(0)).must_include '~ from the .rbd.'
+    _(changelog(0)).wont_include '????????'
+  end
+
+  # The earliest layouts kept the file alone at the revision's root.
+  it "reads a header sitting at the revision root" do
+    FileUtils.mkdir_p(File.join(@root, '0'))
+    File.write(File.join(@root, '0', 'thing.rb'), script('0.0.0', PLAIN_METHOD, changes: "# Changes:\n# 1. ~ from the root.\n"))
+    run_changelogger
+    _(changelog(0)).must_include '~ from the root.'
+    _(changelog(0)).wont_include '????????'
+  end
+
+  # Where lib/ holds several and none is named for the root, the one named as the
+  # header was in the revision before is taken, regardless of case and underscores.
+  it "reads a header by the name it had in the revision before" do
+    library_revision(0, script('0.6.0', PLAIN_METHOD), name: 'csv_file')
+    library_revision(1, script('0.6.1', PLAIN_METHOD, changes: "# Changes since 0.6:\n# 1. ~ from CSVFile.\n"), name: 'CSVFile')
+    library_revision(1, script('0.6.1', PLAIN_METHOD, changes: "# Changes since 0.6:\n# 1. ~ from Array.\n"), name: 'Array')
+    run_changelogger
+    _(changelog(1)).must_include '~ from CSVFile.'
+    _(changelog(1)).wont_include '~ from Array.'
+    _(changelog(1)).wont_include '????????'
+  end
+
+  # A date written with dots, another retired form.
+  it "reads a dotted date" do
+    revision(0, script('0.0.0', PLAIN_METHOD, date: '2010.03.25'))
+    run_changelogger
+    _(changelog(0)).must_include '## 20100325'
+  end
+
+  it "escalates a dotted multi-date header through month and year" do
+    revision(0, script('0.0.0', PLAIN_METHOD, date: '2010.05.27, 06.19, 08.16, 2011.02.17'))
+    run_changelogger
+    _(changelog(0)).must_include '## 20110217'
+  end
+
+  # A remark in parentheses after the date is where a correction to it was noted.
+  it "ignores a remark in parentheses after the date" do
+    revision(0, script('0.0.0', PLAIN_METHOD, date: '20061203 (0.4.4 - 6 incorrectly had 20061201)'))
+    run_changelogger
+    _(changelog(0)).must_include '## 20061203'
+    _(changelog(0)).wont_include '????????'
+  end
+  # A dotted date has the shape of a version and stands above it.
+  it "takes the version below a dotted date rather than the date" do
+    revision(0, script('0.8.0', PLAIN_METHOD, date: '2010.03.25'))
+    run_changelogger
+    _(changelog(0)).must_match(/^0\.8\.0/)
+    _(changelog(0)).wont_match(/^2010\.03\.25/)
+  end
+  # A remark may follow the version in parentheses, as one may follow the date.
+  it "ignores a remark in parentheses after the version" do
+    revision(0, script('0.9.9 (in progress)', PLAIN_METHOD))
+    run_changelogger
+    _(changelog(0)).must_match(/^0\.9\.9/)
+  end
+  # 0.18.0.  A first revision is summarised by what it holds, as a first commit
+  # written by hand says `+ .gitignore`, and never by a placeholder.
+  it "summarises the first revision by what it holds" do
+    revision(0, script('0.0.0', PLAIN_METHOD))
+    run_changelogger
+    _(changelog(0)).must_include '0.0.0: + bin/thing'
+    _(changelog(0)).wont_include 'Initial version'
+  end
+
+  # The header file first, the rest in name order, and beyond three a count.
+  it "names three of what a first revision holds and counts the rest" do
+    revision(0, script('0.0.0', PLAIN_METHOD))
+    FileUtils.mkdir_p(File.join(@root, '0', 'test'))
+    %w[c.csv a.csv b.csv].each{|name| File.write(File.join(@root, '0', 'test', name), "1,2\n")}
+    run_changelogger
+    _(changelog(0)).must_include '0.0.0: + bin/thing, test/a.csv, test/b.csv and 1 more'
+  end
+  # 0.18.2.  A version of four parts was read as none, so its entry stated no version
+  # and its subject was left empty.
+  it "reads a version of more than three parts" do
+    revision(0, script('0.5.11', PLAIN_METHOD))
+    revision(1, script('0.6.0.0', PLAIN_METHOD + MODIFIER_METHOD))
+    run_changelogger
+    _(changelog(1)).must_match(/^0\.6\.0\.0(:|$)/)
+  end
+
+# 0.19.0.  A snapshot is a working copy taken between versions, which states no
+# version, a commit titled with a version being a version, and is summarised by
+# the whole of its diff.
+def fixture(number, path, content)
+  file = File.join(@root, number.to_s, path)
+  FileUtils.mkdir_p(File.dirname(file))
+  File.write(file, content)
+end
+
+it "summarises a snapshot by its diff and states no version" do
+  revision(0, script('0.4.6', PLAIN_METHOD))
+  fixture(0, 'test/test.rb', "one\n")
+  fixture(0, 'test/6.0.csv', "a,b\n")
+  revision(1, script('0.4.6', PLAIN_METHOD))
+  fixture(1, 'test/test.rb', "two\n")
+  fixture(1, 'test/6.1.csv', "c,d\n")
+  run_changelogger
+  _(changelog(1)).must_include "## 20260823\n\n~ test/test.rb, test/6.0.csv --> test/6.1.csv\n"
+  _(changelog(1).scan(/^0\.4\.6/).length).must_equal 1
+end
+
+# A copy taken and never edited is a snapshot whatever came before it, and has an
+# entry of its own, without which its entries fall short of its revisions.
+it "gives a revision identical to the one before it an entry of its own" do
+  revision(0, script('', PLAIN_METHOD))
+  revision(1, script('', PLAIN_METHOD))
+  run_changelogger
+  _(changelog(1)).must_include "Unchanged from the revision before."
+  _(changelog(1).split("\n\n\n").length).must_equal 2
+end
+
+# Before any version there is nothing to be between, and the diff is as it was.
+it "diffs a history kept without versions as it always has" do
+  revision(0, script('', PLAIN_METHOD))
+  revision(1, script('', PLAIN_METHOD + MODIFIER_METHOD))
+  run_changelogger
+  _(changelog(1)).must_include '~ bin/thing: + guarded()'
+  _(changelog(1)).wont_match(%r{^\d+\. ~ bin/thing$})
+end
+
+# A Changes item new to this revision is a version's worth, whatever its number.
+it "takes a new Changes item under the same version for a version" do
+  revision(0, script('0.1.0', PLAIN_METHOD))
+  revision(1, script('0.1.0', PLAIN_METHOD + MODIFIER_METHOD, changes: "# Changes since 0.0:\n# 1. + guarded(), for the empty case.\n"))
   run_changelogger
   _(changelog(1)).must_include '+ guarded(), for the empty case.'
+  _(changelog(1).scan(/^0\.1\.0/).length).must_equal 2
 end
 
-# Where the library is not named for the revisions root there is nothing to guess
-# from, and the switch is how it is said.
-it "reads the header named by --header-file" do
-  library_revision(0, script('0.0.0', PLAIN_METHOD), name: 'Otherwise')
-  library_revision(1, script('0.1.0', PLAIN_METHOD, changes: "# Changes since 0.0:\n# 1. ~ named outright.\n"), name: 'Otherwise')
-  run_changelogger('--header-file', 'lib/Otherwise.rb')
-  _(changelog(1)).must_include '~ named outright.'
-end
-
-# bin/ is looked to first, a program being what changelogger was written for.
-it "prefers bin/ where a project holds both" do
-  revision(0, script('0.0.0', PLAIN_METHOD))
-  revision(1, script('0.1.0', PLAIN_METHOD, changes: "# Changes since 0.0:\n# 1. ~ from bin.\n"))
-  library_revision(1, script('0.1.0', PLAIN_METHOD, changes: "# Changes since 0.0:\n# 1. ~ from lib.\n"))
+# A rename is inferred only where one file of a kind went and one came.
+it "does not pair files where more than one of a kind went" do
+  revision(0, script('0.1.0', PLAIN_METHOD))
+  fixture(0, 'test/a.csv', "1\n")
+  fixture(0, 'test/b.csv', "2\n")
+  revision(1, script('0.1.0', PLAIN_METHOD))
+  fixture(1, 'test/c.csv', "3\n")
+  fixture(1, 'test/d.csv', "4\n")
   run_changelogger
-  _(changelog(1)).must_include '~ from bin.'
-  _(changelog(1)).wont_include '~ from lib.'
-end
-
-# A section header carrying text after its colon ends the Changes section, which
-# 0.12.1 fixed and nothing had covered.
-it "ends the Changes section at a section header with text after it" do
-  revision(0, script('0.0.0', PLAIN_METHOD))
-  revision(1, script('0.1.0', PLAIN_METHOD, changes: "# Changes since 0.0:\n# 1. ~ the only item.\n\n# History: this paragraph is not a change.\n"))
-  run_changelogger
-  _(changelog(1)).must_include '~ the only item.'
-  _(changelog(1)).wont_include 'this paragraph is not a change.'
-end
-
-# 0.14.0.  A date line may carry more than one date, the work having spanned days,
-# and the last of them is the completion date.  A retired form, met when reading
-# older headers, which until now wrote ???????? in the heading.
-it "takes the last date of a multi-date header" do
-  revision(0, script('0.0.0', PLAIN_METHOD, date: '20221203, 04, 05'))
-  run_changelogger
-  _(changelog(0)).must_include '## 20221205'
-  _(changelog(0)).wont_include '????????'
-end
-
-# An element escalates against the one before it: two digits a day, four MMDD,
-# eight a date outright.
-it "escalates a multi-date header through day, month and year" do
-  revision(0, script('0.0.0', PLAIN_METHOD, date: '20091218, 19, 20100112'))
-  run_changelogger
-  _(changelog(0)).must_include '## 20100112'
-end
-
-# 0.17.0.  The retired self-contained layout keeps the header at <name>.rbd/<name>.rb,
-# and until now nothing looked there, so every such revision was ????????.
-it "reads a header from a .rbd directory named for the revisions root" do
-  name = File.basename(@root)
-  directory = File.join(@root, '0', "#{name}.rbd")
-  FileUtils.mkdir_p(directory)
-  File.write(File.join(directory, "#{name}.rb"), script('0.9.0', PLAIN_METHOD, changes: "# Changes since 0.8:\n# 1. ~ from the .rbd.\n"))
-  run_changelogger
-  _(changelog(0)).must_include '~ from the .rbd.'
-  _(changelog(0)).wont_include '????????'
-end
-
-# The earliest layouts kept the file alone at the revision's root.
-it "reads a header sitting at the revision root" do
-  FileUtils.mkdir_p(File.join(@root, '0'))
-  File.write(File.join(@root, '0', 'thing.rb'), script('0.0.0', PLAIN_METHOD, changes: "# Changes:\n# 1. ~ from the root.\n"))
-  run_changelogger
-  _(changelog(0)).must_include '~ from the root.'
-  _(changelog(0)).wont_include '????????'
-end
-
-# Where lib/ holds several and none is named for the root, the one named as the
-# header was in the revision before is taken, regardless of case and underscores.
-it "reads a header by the name it had in the revision before" do
-  library_revision(0, script('0.6.0', PLAIN_METHOD), name: 'csv_file')
-  library_revision(1, script('0.6.1', PLAIN_METHOD, changes: "# Changes since 0.6:\n# 1. ~ from CSVFile.\n"), name: 'CSVFile')
-  library_revision(1, script('0.6.1', PLAIN_METHOD, changes: "# Changes since 0.6:\n# 1. ~ from Array.\n"), name: 'Array')
-  run_changelogger
-  _(changelog(1)).must_include '~ from CSVFile.'
-  _(changelog(1)).wont_include '~ from Array.'
-  _(changelog(1)).wont_include '????????'
-end
-
-# A date written with dots, another retired form.
-it "reads a dotted date" do
-  revision(0, script('0.0.0', PLAIN_METHOD, date: '2010.03.25'))
-  run_changelogger
-  _(changelog(0)).must_include '## 20100325'
-end
-
-it "escalates a dotted multi-date header through month and year" do
-  revision(0, script('0.0.0', PLAIN_METHOD, date: '2010.05.27, 06.19, 08.16, 2011.02.17'))
-  run_changelogger
-  _(changelog(0)).must_include '## 20110217'
-end
-
-# A remark in parentheses after the date is where a correction to it was noted.
-it "ignores a remark in parentheses after the date" do
-  revision(0, script('0.0.0', PLAIN_METHOD, date: '20061203 (0.4.4 - 6 incorrectly had 20061201)'))
-  run_changelogger
-  _(changelog(0)).must_include '## 20061203'
-  _(changelog(0)).wont_include '????????'
-end
-# A dotted date has the shape of a version and stands above it.
-it "takes the version below a dotted date rather than the date" do
-  revision(0, script('0.8.0', PLAIN_METHOD, date: '2010.03.25'))
-  run_changelogger
-  _(changelog(0)).must_match(/^0\.8\.0/)
-  _(changelog(0)).wont_match(/^2010\.03\.25/)
-end
-# A remark may follow the version in parentheses, as one may follow the date.
-it "ignores a remark in parentheses after the version" do
-  revision(0, script('0.9.9 (in progress)', PLAIN_METHOD))
-  run_changelogger
-  _(changelog(0)).must_match(/^0\.9\.9/)
-end
-# 0.18.0.  A first revision is summarised by what it holds, as a first commit
-# written by hand says `+ .gitignore`, and never by a placeholder.
-it "summarises the first revision by what it holds" do
-  revision(0, script('0.0.0', PLAIN_METHOD))
-  run_changelogger
-  _(changelog(0)).must_include '0.0.0: + bin/thing'
-  _(changelog(0)).wont_include 'Initial version'
-end
-
-# The header file first, the rest in name order, and beyond three a count.
-it "names three of what a first revision holds and counts the rest" do
-  revision(0, script('0.0.0', PLAIN_METHOD))
-  FileUtils.mkdir_p(File.join(@root, '0', 'test'))
-  %w[c.csv a.csv b.csv].each{|name| File.write(File.join(@root, '0', 'test', name), "1,2\n")}
-  run_changelogger
-  _(changelog(0)).must_include '0.0.0: + bin/thing, test/a.csv, test/b.csv and 1 more'
-end
-# 0.18.2.  A version of four parts was read as none, so its entry stated no version
-# and its subject was left empty.
-it "reads a version of more than three parts" do
-  revision(0, script('0.5.11', PLAIN_METHOD))
-  revision(1, script('0.6.0.0', PLAIN_METHOD + MODIFIER_METHOD))
-  run_changelogger
-  _(changelog(1)).must_match(/^0\.6\.0\.0(:|$)/)
+  _(changelog(1)).wont_include '-->'
+  _(changelog(1)).must_include '+ test/c.csv, test/d.csv; - test/a.csv and 1 more'
 end
 end

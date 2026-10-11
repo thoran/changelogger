@@ -2,7 +2,7 @@
 # changelogger
 
 # 20261011
-# 0.18.2
+# 0.19.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -23,6 +23,10 @@
 # 2. If not, diff the Ruby structure (name, methods, requires, classes) against
 #    the previous version.
 # 3. For the initial version, inventory what's present.
+# 4. For a snapshot, a working copy taken between versions rather than a version,
+#    state no version and summarise it by the whole of its diff.  A snapshot is a
+#    revision identical to the one before it, or one which comes after a version
+#    and whose header states neither a new version nor a new Changes item.
 #
 # If a CHANGELOG already exists in a version directory, that directory is skipped.
 
@@ -580,6 +584,117 @@ def changes_are_new?(changes, previous_directory)
   changes != previous_changes
 end
 
+def version_of(directory)
+  @versions ||= {}
+  return @versions[directory] if @versions.key?(directory)
+  @versions[directory] = parse_version(read_header_comments(find_binary(directory)))
+end
+
+# The version last stated before this revision, by whichever revision stated it.
+def version_before(directory)
+  version_directories.take_while{|d| d != directory}.reverse.lazy.map{|d| version_of(d)}.detect{|version| version}
+end
+
+# Every file but the CHANGELOG, which is what changelogger writes rather than reads.
+# The CHANGELOG itself and not whatever begins so: changelogger.rb is a file.
+def revision_files(directory)
+  Dir["#{directory}/**/*"]
+    .reject{|f| File.directory?(f)}
+    .reject{|f| File.basename(f) =~ /\ACHANGELOG(\.\w+)?\z/i}
+    .map{|f| f.sub("#{directory}/", '')}
+    .sort
+end
+
+def identical?(previous_directory, directory)
+  files = revision_files(directory)
+  files == revision_files(previous_directory) &&
+    files.all?{|f| File.read(File.join(previous_directory, f)) == File.read(File.join(directory, f))}
+end
+
+# Before any version has been stated there is nothing for a revision to be between,
+# and a history kept without versions is diffed as it always was.  A revision
+# identical to the one before it is a snapshot whatever came before, there being
+# nothing else it could be.
+def snapshot?(directory, previous_directory, version, changes)
+  return true if identical?(previous_directory, directory)
+  previous_version = version_before(directory)
+  return false unless previous_version
+  return false if version && version != previous_version
+  !(changes && changes_are_new?(changes, previous_directory))
+end
+
+# A file gone and one come, alone of their kind in one directory, are taken for one
+# renamed: a fixture regenerated under the next name, test/6.0.csv --> test/6.1.csv.
+# They are paired by name rather than by content, a regenerated fixture sharing no
+# line with the one it replaced.
+def renames(removed, added)
+  kind = ->(f){[File.dirname(f), File.extname(f)]}
+  removed.group_by(&kind).filter_map do |key, gone|
+    come = added.select{|f| kind.(f) == key}
+    [gone.first, come.first] if gone.length == 1 && come.length == 1
+  end
+end
+
+def file_changes(previous_directory, directory)
+  previous_files = revision_files(previous_directory)
+  current_files = revision_files(directory)
+  modified = (current_files & previous_files).reject do |f|
+    File.read(File.join(previous_directory, f)) == File.read(File.join(directory, f))
+  end
+  removed = previous_files - current_files
+  added = current_files - previous_files
+  renamed = renames(removed, added)
+  {
+    modified: modified,
+    renamed: renamed,
+    added: added - renamed.map(&:last),
+    removed: removed - renamed.map(&:first),
+  }
+end
+
+def file_items(changes)
+  changes[:modified].map{|f| "~ #{f}"} +
+    changes[:renamed].map{|from, to| "~ #{from} --> #{to}"} +
+    changes[:added].map{|f| "+ #{f}"} +
+    changes[:removed].map{|f| "- #{f}"}
+end
+
+# The whole of the diff, as `~ test/test.rb, test/6.0.csv --> test/6.1.csv`, three
+# named and the rest counted as holdings_summary() does.
+def snapshot_summary(changes)
+  groups = [
+    ['~', changes[:modified] + changes[:renamed].map{|from, to| "#{from} --> #{to}"}],
+    ['+', changes[:added]],
+    ['-', changes[:removed]],
+  ]
+  total = groups.sum{|marker, paths| paths.length}
+  return 'Unchanged from the revision before.' if total == 0
+  shown = 0
+  parts = groups.filter_map do |marker, paths|
+    named = paths.first([3 - shown, 0].max)
+    shown += named.length
+    "#{marker} #{named.join(', ')}" unless named.empty?
+  end
+  summary = parts.join('; ')
+  total > shown ? "#{summary} and #{total - shown} more" : summary
+end
+
+# No version is stated, a commit titled with a version being a version.
+def process_snapshot(directory, previous_directory, date, unparsed)
+  binary = find_binary(directory)
+  changes = file_changes(previous_directory, directory)
+  items = within(binary, directory, structural_diff_of(previous_directory, directory))
+  items += file_items(changes)
+  format_entry(nil, date, directory, items + unparsed, snapshot_summary(changes))
+end
+
+# What diff_binaries() says of the header file, less the line count it falls back
+# upon, which a snapshot's file items already cover by naming the file.
+def structural_diff_of(previous_directory, directory)
+  items = diff_binaries(previous_directory, directory)
+  items.reject{|item| item =~ /\A~ \S+ \((?:[+-]\d+ lines(?:, )?)+\)\z/}
+end
+
 def process_subsequent_version(directory, index, previous_directory)
   binary = find_binary(directory)
   comments = read_header_comments(binary)
@@ -589,6 +704,9 @@ def process_subsequent_version(directory, index, previous_directory)
   # Before changes_are_new?, which parses the previous version and would leave
   # @unparsed_lines holding its lines rather than this one's.
   unparsed = unparsed_items(directory, changes ? changes[:unparsed] : @unparsed_lines)
+  if snapshot?(directory, previous_directory, version, changes)
+    return process_snapshot(directory, previous_directory, date, unparsed)
+  end
   if changes && changes_are_new?(changes, previous_directory)
     items = changes[:items]
     summary = changes[:summary]

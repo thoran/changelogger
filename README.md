@@ -11,6 +11,7 @@ For each revision in turn, `changelogger` takes the entry from the first of thes
 1. The Changes section in the revision's script header, used as written.
 2. A structural diff against the previous revision, listing the requires, modules, classes and methods added, removed or altered, and a change of the program's name where the header carries one.
 3. For the first revision, an inventory of what is present.
+4. For a snapshot, a working copy taken between versions rather than a version, an entry stating no version and summarised by the whole of its diff, as `~ test/test.rb, test/6.0.csv --> test/6.1.csv`. A snapshot is a revision identical to the one before it, or one which comes after a version has been stated and whose header states neither a new version nor a new Changes item. A file gone and one come, alone of their kind in one directory, are taken for one renamed.
 
 A revision which already has a CHANGELOG is skipped, so a generated entry can be rewritten by hand and will not be overwritten on a later run.
 
@@ -36,7 +37,7 @@ $ changelogger .
 $ changelogger
 ```
 
-The revisions root holds directories named `0`, `1`, `2` and so on, each a complete snapshot of the project at that point. Only numbered directories are considered; anything else is passed over. With no argument the current directory is used.
+The revisions root holds directories named `0`, `1`, `2` and so on, each a complete copy of the project at that point. Only numbered directories are considered; anything else is passed over. With no argument the current directory is used.
 
 
 ## The Changes section
