@@ -503,4 +503,22 @@ it "ends the Changes section at a heading holding a hyphen" do
   _(changelog(1)).wont_include 'Roll the visited stuff'
   _(changelog(1)).wont_include '? Ad-hoc ideas:'
 end
+
+# 0.22.0.  A date which is no date at all, June's thirty-first, is set aside for the
+# modification time, as a missing one is.
+it "takes the modification time in place of a date which is not one" do
+  revision(0, script('0.6.1', PLAIN_METHOD, date: 'Date: 20060631'))
+  File.utime(Time.local(2006, 8, 31, 14, 57), Time.local(2006, 8, 31, 14, 57), File.join(@root, '0', 'bin', 'thing'))
+  output, _status = run_changelogger
+  _(changelog(0)).must_include '## 20060831'
+  _(changelog(0)).wont_include '20060631'
+  _(output).must_include '0: 20060631 in the script header is not a date; took 20060831 from the modification time of bin/thing'
+end
+
+it "keeps a date which is one, the last of February in a leap year among them" do
+  revision(0, script('0.0.0', PLAIN_METHOD, date: '20080229'))
+  output, _status = run_changelogger
+  _(changelog(0)).must_include '## 20080229'
+  _(output).wont_include 'is not a date'
+end
 end

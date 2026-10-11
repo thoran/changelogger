@@ -2,6 +2,16 @@
 
 ## 20261011
 
+0.22.0: Set aside a date which is no date at all, such as 20060631, and take the modification time in its place.
+
+A header's date was taken as written, real or not. Redback's 0.6.1 states `# Date: 20060631`, June's thirty-first, which changelogger wrote as its heading; git-import-all could not parse it, set no author date, and the commit took the day of the import. The file was made and last saved on 20060831 at 14:57, its header having been copied from 0.6.0's `20060629` with the day changed and the month not.
+
+1. + real_date?(): whether a date as written is a day which was, by Date.valid_date?.
+2. ~ heading_date(): a date which is not one is set aside, so that the modification time is taken as it is where none is stated, and the warning says which it was: `251: 20060631 in the script header is not a date; took 20060831 from the modification time of lib/Redback.rb`. Over Redback's 272 revisions, 0.6.1 is the one, and it comes out 20060831.
+3. + require 'date'.
+4. ~ test/changelogger_test.rb: + two examples, run to 49. Against 0.21.1 the one setting June's thirty-first aside fails; the one keeping a leap day passes either way, being a guard.
+5. ~ bin/changelogger: + an impossible date in the header's description of the fallback; /0.21.1/0.22.0/
+
 0.21.1: A section's heading ends the Changes section above it when it holds a hyphen, as `# Ad-hoc ideas:` does.
 
 1. + SECTION_HEADING, ~ parse_changes(): a heading was letters and spaces before its colon, so `# Ad-hoc ideas:` did not end the Changes section above it. The heading was written as a `?` item and every idea beneath it as a change: Redback's 0.4.8 gained `5. Roll-in the visited stuff to passes_muster` among what it did. 78 of Redback's revisions carry that heading after their Changes, and 63 of their entries were so swollen; its warnings for what was not understood fell from 91 to 16, those left being its own `#5.` and `# 40` written without the space or the stop.

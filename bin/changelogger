@@ -2,7 +2,7 @@
 # changelogger
 
 # 20261011
-# 0.21.1
+# 0.22.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -30,14 +30,17 @@
 #
 # If a CHANGELOG already exists in a version directory, that directory is skipped.
 #
-# Where a header states no date, the header file's modification time is taken in
-# its place, and a warning saying so goes to stderr.
+# Where a header states no date, or one which is no date at all, such as 20060631,
+# the header file's modification time is taken in its place, and a warning saying
+# so goes to stderr.
 
 # Examples:
 # 1. changelogger ~/path/to/revisions/root/
 # 2. changelogger .
 # 3. changelogger # . is implicit
 # 4. changelogger -f lib/Browser.rb ~/path/to/revisions/root/
+
+require 'date'
 
 USAGE = "Usage: changelogger [-f|--header-file <path>] [<revisions_root>]"
 
@@ -507,14 +510,22 @@ end
 # A modification time is said to have been taken each time it is, a copy which did
 # not keep it dating every revision as the day of the copy.  Only a revision holding
 # nothing has no date at all.
+# A date as written may be no date at all, 20060631 being June's thirty-first, and
+# such a one is said and set aside, the modification time being nearer the truth
+# than a day which never was.
+def real_date?(date)
+  Date.valid_date?(date[0, 4].to_i, date[4, 2].to_i, date[6, 2].to_i)
+end
+
 def heading_date(date, directory)
-  return date if date
+  return date if date && real_date?(date)
+  reason = date ? "#{date} in the script header is not a date" : "no date in the script header"
   date, file = modification_date(directory)
   if date
-    $stderr.puts "#{File.basename(directory)}: no date in the script header; took #{date} from the modification time of #{file}"
+    $stderr.puts "#{File.basename(directory)}: #{reason}; took #{date} from the modification time of #{file}"
     return date
   end
-  $stderr.puts "#{File.basename(directory)}: no date in the script header and no file to take one from; wrote #{MISSING_DATE} in its place"
+  $stderr.puts "#{File.basename(directory)}: #{reason} and no file to take one from; wrote #{MISSING_DATE} in its place"
   MISSING_DATE
 end
 
