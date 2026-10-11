@@ -441,4 +441,39 @@ it "does not pair files where more than one of a kind went" do
   _(changelog(1)).wont_include '-->'
   _(changelog(1)).must_include '+ test/c.csv, test/d.csv; - test/a.csv and 1 more'
 end
+
+# 0.20.0.  Where the header states no date, the header file's modification time is
+# taken, and it is said so.
+it "takes the header file's modification time where the header states no date" do
+  revision(0, script('0.0.0', PLAIN_METHOD, date: ''))
+  File.utime(Time.local(2005, 8, 10, 8, 35), Time.local(2005, 8, 10, 8, 35), File.join(@root, '0', 'bin', 'thing'))
+  output, _status = run_changelogger
+  _(changelog(0)).must_include '## 20050810'
+  _(changelog(0)).wont_include '????????'
+  _(output).must_include '0: no date in the script header; took 20050810 from the modification time of bin/thing'
+end
+
+it "takes the newest file's modification time where there is no header file" do
+  fixture(0, 'notes.txt', "a\n")
+  fixture(0, 'data/older.csv', "b\n")
+  File.utime(Time.local(2005, 8, 7), Time.local(2005, 8, 7), File.join(@root, '0', 'data', 'older.csv'))
+  File.utime(Time.local(2005, 8, 9), Time.local(2005, 8, 9), File.join(@root, '0', 'notes.txt'))
+  output, _status = run_changelogger
+  _(changelog(0)).must_include '## 20050809'
+  _(output).must_include 'from the modification time of notes.txt'
+end
+
+it "prefers the header's date to a modification time" do
+  revision(0, script('0.0.0', PLAIN_METHOD, date: '20260823'))
+  File.utime(Time.local(2005, 8, 10), Time.local(2005, 8, 10), File.join(@root, '0', 'bin', 'thing'))
+  run_changelogger
+  _(changelog(0)).must_include '## 20260823'
+end
+
+it "writes ???????? for a revision holding nothing to take a date from" do
+  FileUtils.mkdir_p(File.join(@root, '0'))
+  output, _status = run_changelogger
+  _(changelog(0)).must_include '## ????????'
+  _(output).must_include 'no file to take one from'
+end
 end

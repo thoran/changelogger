@@ -2,7 +2,7 @@
 # changelogger
 
 # 20261011
-# 0.19.0
+# 0.20.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
@@ -29,6 +29,9 @@
 #    and whose header states neither a new version nor a new Changes item.
 #
 # If a CHANGELOG already exists in a version directory, that directory is skipped.
+#
+# Where a header states no date, the header file's modification time is taken in
+# its place, and a warning saying so goes to stderr.
 
 # Examples:
 # 1. changelogger ~/path/to/revisions/root/
@@ -485,9 +488,28 @@ def unparsed_items(directory, lines)
   end
 end
 
+# When the revision was last worked upon, which is the header file's modification
+# time, and failing a header file the newest file in the revision's.  The file is
+# returned beside the date so that the warning can name it.
+def modification_date(directory)
+  binary = find_binary(directory)
+  files = binary ? [binary] : revision_files(directory).map{|f| File.join(directory, f)}
+  return nil if files.empty?
+  newest = files.max_by{|f| File.mtime(f)}
+  [File.mtime(newest).strftime('%Y%m%d'), newest.sub("#{directory}/", '')]
+end
+
+# A modification time is said to have been taken each time it is, a copy which did
+# not keep it dating every revision as the day of the copy.  Only a revision holding
+# nothing has no date at all.
 def heading_date(date, directory)
   return date if date
-  $stderr.puts "#{File.basename(directory)}: no date in the script header; wrote #{MISSING_DATE} in its place"
+  date, file = modification_date(directory)
+  if date
+    $stderr.puts "#{File.basename(directory)}: no date in the script header; took #{date} from the modification time of #{file}"
+    return date
+  end
+  $stderr.puts "#{File.basename(directory)}: no date in the script header and no file to take one from; wrote #{MISSING_DATE} in its place"
   MISSING_DATE
 end
 

@@ -80,7 +80,7 @@ Entries are written newest first, and each revision receives every entry up to a
 
 A date heading is written once for the versions which share it rather than once apiece, the day being one occasion and the versions the steps it was released in. `git-import-all` reads that form as of 0.14.0; an older copy takes the first version beneath a heading and drops the rest without a word.
 
-Where a revision's script header carries no date, a warning naming the revision goes to stderr and `## ????????` is written in its place, rather than a date being invented or the run stopped.
+Where a revision's script header carries no date, the header file's modification time is taken in its place, or, where there is no header file, the newest file's in the revision, and a warning naming the revision, the date, and the file goes to stderr. A modification time is only as good as the copy which kept it: a tree copied without keeping times dates every revision as the day of the copy, which is why it is said each time. Only a revision holding nothing has `## ????????` written in its place.
 
 The version and date come from the revision's script header, which is the source of record:
 

@@ -2,6 +2,17 @@
 
 ## 20261011
 
+0.20.0: Take a revision's date from its header file's modification time where the header states none.
+
+A header stating no date was written out as `## ????????`, which git-import-all does not recognise as a heading, so a tree holding one refused to import until every such date had been filled in by hand. Redback's first 26 revisions, from August 2005, have no header at all, and their files still carry the times they were last saved.
+
+1. + modification_date(): the header file's modification time, and failing a header file the newest file's in the revision, as YYYYMMDD in local time, with the file it came from.
+2. ~ heading_date(): takes modification_date() where the header states no date, and says so on stderr, naming the revision, the date, and the file, a copy which did not keep times dating every revision as the day of the copy. `????????` is written only for a revision holding nothing.
+3. Over Redback's 272 revisions, no heading is `????????` and git-import-all 0.16.0 wrote 272 commits, the first dated 20050807.
+4. ~ test/changelogger_test.rb: + four examples, run to 44. Against 0.19.0 the two taking a modification time fail, as does the one for a revision holding nothing, whose warning is worded anew; the one preferring the header's date passes either way, being a guard.
+5. ~ README.md: the modification time, rather than `????????`, where a header states no date.
+6. ~ bin/changelogger: + the fallback in the header's description; /0.19.0/0.20.0/
+
 0.19.0: + a tier for a snapshot, a working copy taken between versions, which states no version and is summarised by the whole of its diff.
 
 A revision whose header stated no new version and no new Changes item was written as a version all the same, so the version it carried was stated two, three, or five times over, and git-import-all titled every one of those commits as that version. Summarised by the first line of its diff, a revision in which a fixture was regenerated under the next name and the test script changed read as `- test/6.0.csv`. And a revision identical to the one before it had an entry with nothing in it, which git-import-all could not count, so a tree holding one parsed to fewer entries than it had revisions and the import refused it. Such a revision is a snapshot, not a version, and is now written as one: `~ test/test.rb, test/6.0.csv --> test/6.1.csv`, with no version, a commit titled with a version being a version (decided 20260909).
