@@ -1,13 +1,19 @@
 #!/usr/bin/env ruby
 # changelogger
 
-# 20261011
-# 0.23.0
+# 20261031
+# 0.24.0
 
 # Description:
 # Given a directory of numbered subdirectories (0, 1, 2, ...) each representing
-# a version of a project, extract changelog information and write a cumulative
-# CHANGELOG file into each version directory.
+# a version of a project, describe each revision in a revisions.yml in the
+# revisions root, its number, day and commit message, which is what
+# git-import-all commits them by, and write a cumulative CHANGELOG from it into
+# each version directory.  It is done in two steps, as interleaver's are, so as
+# what was found can be looked at and corrected first: plan reads the revisions
+# and writes revisions.yml, and build writes the CHANGELOGs from it.  Once
+# planned, revisions.yml is the record, corrected where it stands, and build
+# writes the CHANGELOGs afresh from it each time.
 #
 # The header read is bin/<anything> where there is one, that being what a program
 # carries, and lib/<revisions root>.rb after it, that being where a library keeps
@@ -28,37 +34,70 @@
 #    revision identical to the one before it, or one which comes after a version
 #    and whose header states neither a new version nor a new Changes item.
 #
-# If a CHANGELOG already exists in a version directory, that directory is skipped.
+# A revision which already holds a CHANGELOG, written by hand, gives plan its
+# entries from that rather than from its header, whether in changelogger's own
+# form or with a version in each heading, and build then writes it afresh in
+# changelogger's.  plan does not replace an existing revisions.yml, and build
+# writes nothing from one which git-import-all would refuse.
 #
 # Where a header states no date, or one which is no date at all, such as 20060631,
 # the header file's modification time is taken in its place, and a warning saying
-# so goes to stderr.
+# so goes to stderr.  Where there is none to take, plan writes ????-??-?? as the
+# revision's time, to be given in revisions.yml.
 
 # Examples:
-# 1. changelogger ~/path/to/revisions/root/
-# 2. changelogger .
-# 3. changelogger # . is implicit
-# 4. changelogger -f lib/Browser.rb ~/path/to/revisions/root/
+# 1. changelogger plan ~/path/to/revisions/root/ # revisions.yml, beside 0, 1, 2, ...
+# 2. changelogger build ~/path/to/revisions/root/ # a CHANGELOG into each of 0, 1, 2, ..., from revisions.yml
+# 3. changelogger plan . && changelogger build # the revisions root defaults to .
+# 4. changelogger plan -f lib/Browser.rb ~/path/to/revisions/root/
+# 5. changelogger build -n ~/path/to/revisions/root/ # what would be written, writing nothing
 
 require 'date'
+require 'yaml'
 
-USAGE = "Usage: changelogger [-f|--header-file <path>] [<revisions_root>]"
+USAGE = <<~USAGE
+  Usage: changelogger plan [-f|--header-file <path>] [<revisions_root>]
+         changelogger build [-n|--dry-run] [<revisions_root>]
+USAGE
 
-# The file whose header holds the Changes section, named relative to each numbered
-# directory.  Given, it settles which file is read; a project holding both bin/ and
-# lib/ has no other way of saying.
+COMMANDS = %w[plan build]
+
+def command
+  @command ||= ARGV.shift
+end
+
+def usage_error
+  $stderr.puts USAGE
+  exit 1
+end
+
+def validate_command
+  if %w[-h --help].include?(ARGV.first)
+    puts USAGE
+    exit
+  end
+  usage_error unless COMMANDS.include?(command)
+end
+
+# plan's header file is the file whose header holds the Changes section, named
+# relative to each numbered directory.  Given, it settles which file is read; a
+# project holding both bin/ and lib/ has no other way of saying.  build's dry run
+# says what would be written and writes nothing.
 def parse_arguments
   return if @arguments_parsed
   @arguments_parsed = true
-  index = ARGV.index('-f') || ARGV.index('--header-file')
-  return unless index
-  path = ARGV[index + 1]
-  unless path
-    $stderr.puts USAGE
-    exit 1
-  end
+  @header_file = take_option('-f', '--header-file') if command == 'plan'
+  @dry_run = %w[-n --dry-run].any?{|flag| ARGV.delete(flag)} if command == 'build'
+  usage_error if ARGV.any?{|argument| argument.start_with?('-')}
+end
+
+def take_option(*names)
+  index = names.map{|name| ARGV.index(name)}.compact.first
+  return nil unless index
+  value = ARGV[index + 1]
+  usage_error unless value
   ARGV.slice!(index, 2)
-  @header_file = path
+  value
 end
 
 def header_file
@@ -66,21 +105,16 @@ def header_file
   @header_file
 end
 
+def dry_run?
+  parse_arguments
+  @dry_run
+end
+
 def revisions_root
   @revisions_root ||= (
     parse_arguments
-    revisions_root = (
-      if ARGV[0]
-        unless File.exist?(ARGV[0])
-          $stderr.puts USAGE
-          exit 1
-        end
-        ARGV[0]
-      else
-        '.'
-      end
-    )
-    File.expand_path(revisions_root)
+    usage_error if ARGV[0] && !File.exist?(ARGV[0])
+    File.expand_path(ARGV[0] || '.')
   )
 end
 
@@ -93,8 +127,12 @@ def version_directories
 end
 
 # Files only: a directory whose name begins with changelog is not one.
+def changelog_path(directory)
+  (Dir["#{directory}/CHANGELOG*"] + Dir["#{directory}/changelog*"]).detect{|entry| File.file?(entry)}
+end
+
 def changelog_exist?(directory)
-  (Dir["#{directory}/CHANGELOG*"] + Dir["#{directory}/changelog*"]).any?{|entry| File.file?(entry)}
+  !changelog_path(directory).nil?
 end
 
 # A name is the same regardless of case and with or without underscores:
@@ -529,7 +567,7 @@ def heading_date(date, directory)
     $stderr.puts "#{File.basename(directory)}: #{reason}; took #{date} from the modification time of #{file}"
     return date
   end
-  $stderr.puts "#{File.basename(directory)}: #{reason} and no file to take one from; wrote #{MISSING_DATE} in its place"
+  $stderr.puts "#{File.basename(directory)}: #{reason} and no file to take one from"
   MISSING_DATE
 end
 
@@ -575,15 +613,34 @@ end
 # where there was one; under the dawn rule a date is a day's work, and the
 # versions beneath a heading are the steps it was released in.  Entries stay
 # two blank lines apart whether or not a heading stands between them.
-def write_changelog(directory, entries)
+def changelog_content(entries)
   previous_date = nil
   blocks = entries.reverse.collect do |entry|
     block = entry[:date] == previous_date ? entry[:body] : "## #{entry[:date]}\n\n#{entry[:body]}"
     previous_date = entry[:date]
     block
   end
-  content = "# CHANGELOG\n\n" + blocks.join("\n\n\n") + "\n"
-  File.write(File.join(directory, 'CHANGELOG'), content)
+  "# CHANGELOG\n\n" + blocks.join("\n\n\n") + "\n"
+end
+
+def changelog_report(directory, existed)
+  name = File.basename(directory)
+  if dry_run?
+    "Would #{existed ? 'rewrite' : 'write'} the CHANGELOG for version #{name}"
+  else
+    "#{existed ? 'Rewrote' : 'Wrote'} CHANGELOG for version #{name}"
+  end
+end
+
+# Into the CHANGELOG a revision already holds, under whatever name it has, and
+# only where what it holds is not what would be written.
+def write_changelog(directory, entries)
+  path = changelog_path(directory) || File.join(directory, 'CHANGELOG')
+  content = changelog_content(entries)
+  existed = File.exist?(path)
+  return if existed && File.read(path) == content
+  File.write(path, content) unless dry_run?
+  puts changelog_report(directory, existed)
 end
 
 # An item names what changed within the file it was read from, as an entry
@@ -760,49 +817,379 @@ def process_subsequent_version(directory, index, previous_directory)
   format_entry(version, date, directory, items + unparsed, summary)
 end
 
-# The entries a CHANGELOG already holds, oldest last as write_changelog wants
-# them.  A block carries a date heading only where its date differs from the one
-# written after it, so the heading last seen stands until another is met.
-def entries_from(directory)
-  path = File.join(directory, 'CHANGELOG')
-  return [] unless File.exist?(path)
-  date = nil
-  File.read(path).sub(/\A# CHANGELOG\n\n/, '').split("\n\n\n").collect do |block|
-    if block =~ /\A## (\S+)\n\n(.*)\z/m
-      date = $1
-      {date: date, body: $2.rstrip}
-    else
-      {date: date, body: block.rstrip}
+# Taken from git-import-all 0.16.0, which no longer reads a CHANGELOG, and given
+# each entry's whole text as well as its summary: an entry's body is a commit's
+# message, and a message wants its items.
+module Changelog
+  ITEM = /\A\d+\.\s+(.*)\z/
+  VERSION = /\[?v?(\d+(?:\.\d+)+)\]?/
+  DATE = /(\d{4}-?\d{2}-?\d{2})/
+
+  class NotUnderstood < RuntimeError; end
+
+  module Format
+    module Common
+      def heading(text)
+        text.lines.first.to_s.strip
+      end
+
+      def body_lines(text)
+        text.lines.drop(1).map(&:strip)
+      end
+
+      # As written, less trailing space, so that an item's indentation is kept.
+      def raw_body_lines(text)
+        text.lines.drop(1).map(&:rstrip)
+      end
+
+      def items(text)
+        body_lines(text).map{|line| line[Changelog::ITEM, 1]}.compact
+      end
+
+      def entry(version, date, summary, text, body)
+        {version: version, date: date, summary: summary || items(text).first || 'No summary', body: body}
+      end
     end
-  end.reverse
+
+    module DatedHeading
+      extend Common
+
+      # changelogger writes ???????? where it has no date to give, and reads it back.
+      BOUNDARY = /^##\s+(?:\d{8}|\?{8})\s*$/
+      HEADING = /\A##\s+(\d{8}|\?{8})\s*\z/
+      VERSIONED_SUMMARY = /\A(\d+(?:\.\d+)+)(?::\s*(.*))?\z/
+
+      class << self
+        def key
+          :dated_heading
+        end
+
+        def matches?(text)
+          !(heading(text) =~ HEADING).nil?
+        end
+
+        # A heading may stand over more than one version, changelogger writing one
+        # heading per date as of 0.10.0 rather than one per version.  Each versioned
+        # summary beneath a heading begins an entry and they share its date; a
+        # heading with one version beneath it is a run of one.
+        def parse(text)
+          date = heading(text)[HEADING, 1]
+          found = blocks(text)
+          return [unversioned_entry(text, date)] if found.empty?
+          found.collect{|block| entry(block[:version], date, block[:summary], block[:text], block[:text].rstrip)}
+        end
+
+        private
+
+        # Each block's text begins with its own summary line, so that the items
+        # beneath it are what entry() reads where no summary was stated.
+        # A version line need not carry a summary: changelogger writes it bare where
+        # the revision it read had no marker to take one from.  Bare, the entry takes
+        # its first item instead, which is what entry() does with a nil summary.
+        #
+        # An entry begins at a line stating a version, and also after the two blank
+        # lines changelogger writes between one entry and the next, so that an entry
+        # stating no version, a snapshot's, is an entry of its own rather than part
+        # of the one above it.
+        def blocks(text)
+          separated = true
+          blanks = 0
+          raw_body_lines(text).each_with_object([]) do |raw, blocks|
+            line = raw.strip
+            if line.empty?
+              blanks += 1
+              separated = true if blanks > 1
+              blocks.last[:text] += "\n" unless blocks.empty?
+              next
+            end
+            if line =~ VERSIONED_SUMMARY
+              summary = $2.to_s.strip
+              blocks << {version: $1, summary: (summary.empty? ? nil : summary), text: "#{line}\n"}
+            elsif separated
+              # An entry whose first line is itself an item takes that item as its
+              # summary, stated here rather than left to entry(): items() reads a
+              # text's lines after its first, that first being a summary line, and
+              # would pass over the very item this block begins at.
+              summary = line =~ Changelog::ITEM ? $1 : line
+              blocks << {version: nil, summary: summary, text: "#{line}\n"}
+            else
+              blocks.last[:text] += "#{raw}\n"
+            end
+            blanks = 0
+            separated = false
+          end
+        end
+
+        def unversioned_entry(text, date)
+          summary = body_lines(text).detect do |line|
+            !line.empty? && !(line =~ Changelog::ITEM) && !line.start_with?('#')
+          end
+          entry(nil, date, summary, text, '')
+        end
+      end
+    end
+
+    module VersionedHeading
+      extend Common
+
+      BOUNDARY = /^##\s+\[?v?\d+(?:\.\d+)+/
+
+      # A line is no summary where it is a heading of its own or a numbered item.
+      NOT_PROSE = /\A(?:#|\d+\.\s)/
+
+      class << self
+        def key
+          :versioned_heading
+        end
+
+        def matches?(text)
+          line = heading(text)
+          line.start_with?('##') && !line[Changelog::VERSION, 1].nil?
+        end
+
+        # The body is the entry as changelogger writes one, the heading's version
+        # and summary for its first line and what the heading stood over beneath.
+        # A summary taken from beneath the heading is moved up rather than repeated.
+        def parse(text)
+          line = heading(text).sub(/\A##\s+/, '')
+          version = line[Changelog::VERSION, 1]
+          date = line[Changelog::DATE, 1]
+          summary = summary(line, version, date)
+          lines = trimmed(raw_body_lines(text))
+          if !summary && summary_line?(lines)
+            summary = lines.first.strip
+            lines = trimmed(lines.drop(1))
+          end
+          [entry(version, date, summary, text, body([version, summary].compact.join(': '), lines))]
+        end
+
+        private
+
+        def summary(line, version, date)
+          result = line.dup
+          result.sub!(/\[?v?#{Regexp.escape(version)}\]?/, '') if version
+          result.sub!(/\(?#{Regexp.escape(date)}\)?/, '') if date
+          result.sub!(/\A[\s\-—\/(),:]+/, '')
+          result.strip.empty? ? nil : result.strip
+        end
+
+        # The first line beneath the heading is a summary where it stands alone and
+        # is prose, as a commit's subject does.  A list's first bullet is not alone.
+        def summary_line?(lines)
+          return false if lines.empty? || lines.first =~ NOT_PROSE
+          lines.length == 1 || lines[1].empty?
+        end
+
+        def body(subject, lines)
+          lines.empty? ? subject : "#{subject}\n\n#{lines.join("\n")}"
+        end
+
+        def trimmed(lines)
+          lines.drop_while(&:empty?).reverse.drop_while(&:empty?).reverse
+        end
+      end
+    end
+
+    class << self
+      def all
+        [DatedHeading, VersionedHeading]
+      end
+
+      def boundary
+        @boundary ||= Regexp.new("(?=#{all.map{|format| format::BOUNDARY.source}.join('|')})")
+      end
+
+      def for(text)
+        matched = all.select{|format| format.matches?(text)}
+        line = text.lines.first.to_s.strip
+        raise NotUnderstood, "no CHANGELOG format matches: #{line}" if matched.empty?
+        raise NotUnderstood, "ambiguous CHANGELOG format (#{matched.map(&:key).join(', ')}): #{line}" if matched.length > 1
+        matched.first
+      end
+    end
+  end
+
+  class << self
+    def parse(text)
+      return [] unless text
+      # Flattened in the order the file states them, newest first, and reversed
+      # once at the end: a heading standing over several versions holds them in
+      # that same order, so reversing the chunks alone left those in the wrong one.
+      chunks(text).flat_map{|chunk| Format.for(chunk).parse(chunk)}.reverse
+    end
+
+    private
+
+    def chunks(text)
+      result = text.split(Format.boundary).reject{|chunk| chunk.strip.empty?}
+      result.shift unless result.empty? || matched?(result.first)
+      raise NotUnderstood, 'no CHANGELOG entries recognised' if result.empty?
+      result
+    end
+
+    def matched?(chunk)
+      Format.all.any?{|format| format.matches?(chunk)}
+    end
+  end
 end
 
-def main
-  revisions_root
-  cumulative_entries = []
+# A date as changelogger writes one, YYYYMMDD, whichever way the heading wrote it.
+def changelog_date(date)
+  date ? date.delete('-') : MISSING_DATE
+end
+
+# The entries a CHANGELOG already holds, oldest first as write_changelog wants
+# them, in changelogger's own form or in one with a version in each heading.  One
+# not understood gives none, and says so, rather than ending the run.
+def entries_from(directory)
+  entries = Changelog.parse(File.read(changelog_path(directory))).collect do |entry|
+    {date: changelog_date(entry[:date]), body: entry[:body]}
+  end
+  $stderr.puts "#{File.basename(directory)}: took #{entries.length} entries from its CHANGELOG"
+  entries
+rescue Changelog::NotUnderstood => e
+  $stderr.puts "#{File.basename(directory)}: #{e.message}; took no entries from its CHANGELOG"
+  []
+end
+
+def revisions_path
+  File.join(revisions_root, 'revisions.yml')
+end
+
+def day(date)
+  "#{date[0, 4]}-#{date[4, 2]}-#{date[6, 2]}"
+end
+
+def revisions(entries)
+  version_directories.zip(entries).collect do |directory, entry|
+    {'revision' => File.basename(directory).to_i, 'time' => day(entry[:date]), 'message' => entry[:body]}
+  end
+end
+
+# Each message is a literal block, its lines as they are and nothing escaped,
+# which is how one is read and edited by hand.  The emitter quotes one instead
+# where a block cannot hold it.
+def revisions_yaml(entries)
+  tree = Psych::Visitors::YAMLTree.create
+  tree << {'revisions' => revisions(entries)}
+  stream = tree.tree
+  stream.grep(Psych::Nodes::Mapping).each do |mapping|
+    mapping.children.each_slice(2){|key, value| value.style = Psych::Nodes::Scalar::LITERAL if key.value == 'message'}
+  end
+  stream.children.first.implicit = true
+  stream.to_yaml
+end
+
+# Plan
+
+# Every revision's entry, oldest first, by the tiers from its header.  A revision
+# already holding a CHANGELOG, written by hand, gives what that holds in place of
+# every entry up to it, rather than nothing: a revision which contributed none
+# left every revision after it short by an entry apiece.
+def planned_entries
+  entries = []
   previous_directory = nil
   version_directories.each_with_index do |directory, index|
     if changelog_exist?(directory)
-      $stderr.puts "Skipping #{File.basename(directory)}: CHANGELOG already exists"
-      # What it holds, rather than nothing.  A skipped revision contributed no
-      # entry to the accumulator, so every revision after one was short by an
-      # entry apiece and the last was short by as many as had been skipped.
-      # Read from the file rather than regenerated, a revision being skipped
-      # precisely because what it says has been written by hand.
-      cumulative_entries = entries_from(directory)
-      previous_directory = directory
-      next
-    end
-    if index == 0
-      entry = process_initial_version(directory)
+      entries = entries_from(directory)
+    elsif index == 0
+      entries << process_initial_version(directory)
     else
-      entry = process_subsequent_version(directory, index, previous_directory)
+      entries << process_subsequent_version(directory, index, previous_directory)
     end
-    cumulative_entries << entry
-    write_changelog(directory, cumulative_entries.dup)
-    puts "Wrote CHANGELOG for version #{File.basename(directory)}"
     previous_directory = directory
   end
+  entries
+end
+
+# What git-import-all wants before it takes the file, said rather than refused,
+# revisions.yml being where it is given.
+def note_gaps(entries)
+  version_directories.zip(entries).each do |directory, entry|
+    name = File.basename(directory)
+    $stderr.puts "#{name}: no date; give it a time in revisions.yml" unless real_date?(entry[:date])
+    $stderr.puts "#{name}: no message; give it one in revisions.yml" if entry[:body].strip.empty?
+  end
+end
+
+# Once written, revisions.yml is the record, and is corrected where it stands
+# rather than planned again.
+def plan
+  abort "revisions.yml already exists, and is not replaced: it is the record now" if File.exist?(revisions_path)
+  entries = planned_entries
+  unless entries.length == version_directories.length
+    abort "Wrote no revisions.yml: #{entries.length} entries for #{version_directories.length} revisions"
+  end
+  File.write(revisions_path, revisions_yaml(entries))
+  puts "Wrote revisions.yml"
+  note_gaps(entries)
+end
+
+# Build
+
+REVISION_DAY = /\A\d{4}-\d{2}-\d{2}\z/
+REVISION_TIME = /\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4}\z/
+
+# The day a time falls upon in the zone it states, as YYYYMMDD, or nil where
+# git-import-all could not read it, it taking a bare day or a full time, quoted.
+def day_of(time)
+  return nil unless time.is_a?(String)
+  if time =~ REVISION_DAY
+    Date.strptime(time, '%Y-%m-%d').strftime('%Y%m%d')
+  elsif time =~ REVISION_TIME
+    DateTime.strptime(time, '%Y-%m-%d %H:%M:%S %z').strftime('%Y%m%d')
+  end
+rescue Date::Error
+  nil
+end
+
+def recorded_list
+  abort "No revisions.yml: run changelogger plan first" unless File.exist?(revisions_path)
+  data = YAML.safe_load(File.read(revisions_path), permitted_classes: [Date, Time])
+  list = data['revisions'] if data.is_a?(Hash)
+  abort "revisions.yml has no revisions list" unless list.is_a?(Array)
+  list
+rescue Psych::Exception => e
+  abort "revisions.yml does not parse: #{e.message}"
+end
+
+def entry_faults(entry, index, number)
+  return ["revisions[#{index}] is not a mapping"] unless entry.is_a?(Hash)
+  faults = []
+  faults << "revisions[#{index}] states revision #{entry['revision'].inspect} where the directory at its place is #{number}" unless entry['revision'] == number
+  faults << "revisions[#{index}] has a time which does not parse: #{entry['time'].inspect}" unless day_of(entry['time'])
+  faults << "revisions[#{index}] has no message" unless entry['message'].is_a?(String) && !entry['message'].strip.empty?
+  faults
+end
+
+# Whatever git-import-all would refuse the file for, it taking each entry for the
+# directory at the same place.
+def recorded_faults(list)
+  faults = list.first(version_directories.length).each_with_index.flat_map do |entry, index|
+    entry_faults(entry, index, File.basename(version_directories[index]).to_i)
+  end
+  faults << "#{list.length} entries for #{version_directories.length} revisions" unless list.length == version_directories.length
+  faults
+end
+
+# Nothing is written from a file git-import-all would refuse, so that the
+# CHANGELOGs and the commits are made from the same record.
+def recorded_entries
+  list = recorded_list
+  faults = recorded_faults(list)
+  abort faults.map{|fault| "revisions.yml: #{fault}"}.join("\n") unless faults.empty?
+  list.collect{|entry| {date: day_of(entry['time']), body: entry['message'].rstrip}}
+end
+
+def build
+  entries = recorded_entries
+  version_directories.each_with_index{|directory, index| write_changelog(directory, entries.first(index + 1))}
+end
+
+def main
+  validate_command
+  parse_arguments
+  send(command)
 end
 
 main

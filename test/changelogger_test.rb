@@ -14,6 +14,7 @@ require 'fileutils'
 require 'minitest/autorun'
 require 'rbconfig'
 require 'tmpdir'
+require 'yaml'
 
 # CHANGELOGGER points the suite at another revision, which is how the extractor
 # examples were confirmed to fail against 0.10.1 rather than merely to pass here.
@@ -65,9 +66,18 @@ describe "changelogger" do
     File.write(File.join(directory, "#{name}.rb"), source)
   end
 
-  def run_changelogger(*arguments)
-    output = IO.popen([RbConfig.ruby, TOOL, *arguments, @root], err: [:child, :out], &:read)
+  def changelogger(command, *arguments)
+    output = IO.popen([RbConfig.ruby, TOOL, command, *arguments, @root], err: [:child, :out], &:read)
     [output, $?.exitstatus]
+  end
+
+  # plan and then build, the CHANGELOGs being built from what plan read, which is
+  # what an example of the tiers asserts upon.
+  def run_changelogger(*arguments)
+    output, status = changelogger('plan', *arguments)
+    return [output, status] unless status == 0
+    build_output, status = changelogger('build')
+    [output + build_output, status]
   end
 
   def changelog(number)
@@ -151,38 +161,39 @@ describe "changelogger" do
     _(changelog(1).index('0.1.0')).must_be :<, changelog(1).index('0.0.0')
   end
 
-  # A generated entry rewritten by hand is not overwritten upon a later run,
-  # which is what makes the output a starting point rather than a record kept.
-  it "skips a revision which already has a CHANGELOG" do
+  # A CHANGELOG which cannot be read is left as it is, revisions.yml not being
+  # written short of its entries.
+  it "leaves a CHANGELOG it does not understand as it is, and plans nothing" do
     revision(0, script('0.0.0', PLAIN_METHOD))
     File.write(File.join(@root, '0', 'CHANGELOG'), "# CHANGELOG\n\nwritten by hand\n")
-    run_changelogger
-    _(changelog(0)).must_include 'written by hand'
+    output, status = run_changelogger
+    _(status).must_equal 1
+    _(changelog(0)).must_equal "# CHANGELOG\n\nwritten by hand\n"
+    _(output).must_include '0: no CHANGELOG entries recognised; took no entries from its CHANGELOG'
+    _(File.exist?(File.join(@root, 'revisions.yml'))).must_equal false
   end
 
-  # A skipped revision contributed nothing to what the next one is built from, so
-  # every revision after one was short by an entry apiece.  Skipping is the normal
-  # state, being what protects an entry written by hand.
-  it "counts a skipped revision among what follows it" do
+  # A revision holding a CHANGELOG contributed nothing to what the next one is
+  # built from, so every revision after one was short by an entry apiece.
+  it "counts a revision whose entries come from its CHANGELOG among what follows it" do
     revision(0, script('0.0.0', PLAIN_METHOD))
     revision(1, script('0.1.0', PLAIN_METHOD + MODIFIER_METHOD))
     revision(2, script('0.2.0', PLAIN_METHOD + MODIFIER_METHOD + "def third(value)\n  value\nend\n"))
     run_changelogger
-    File.delete(File.join(@root, '1', 'CHANGELOG'), File.join(@root, '2', 'CHANGELOG'))
+    File.delete(File.join(@root, 'revisions.yml'), File.join(@root, '1', 'CHANGELOG'), File.join(@root, '2', 'CHANGELOG'))
     run_changelogger
     _(changelog(2).scan(/^0\.\d+\.\d+/).length).must_equal 3
     _(changelog(1).scan(/^0\.\d+\.\d+/).length).must_equal 2
   end
 
-  # What the skipped revision holds rather than what it would have generated: it
-  # is skipped because what it says has been written by hand, and that is what
-  # the revisions after it should carry.
-  it "carries a hand-written entry from a skipped revision into the ones after it" do
+  # What the revision's CHANGELOG holds rather than what it would have generated,
+  # it having been written by hand, and that is what the revisions after it carry.
+  it "carries a hand-written entry from a revision's CHANGELOG into the ones after it" do
     revision(0, script('0.0.0', PLAIN_METHOD))
     revision(1, script('0.1.0', PLAIN_METHOD + MODIFIER_METHOD))
     run_changelogger
     File.write(File.join(@root, '0', 'CHANGELOG'), File.read(File.join(@root, '0', 'CHANGELOG')).sub(/^0\.0\.0.*$/, '0.0.0: written by hand.'))
-    File.delete(File.join(@root, '1', 'CHANGELOG'))
+    File.delete(File.join(@root, 'revisions.yml'), File.join(@root, '1', 'CHANGELOG'))
     run_changelogger
     _(changelog(1)).must_include '0.0.0: written by hand.'
   end
@@ -470,10 +481,10 @@ it "prefers the header's date to a modification time" do
   _(changelog(0)).must_include '## 20260823'
 end
 
-it "writes ???????? for a revision holding nothing to take a date from" do
+it "plans ????-??-?? for a revision holding nothing to take a date from" do
   FileUtils.mkdir_p(File.join(@root, '0'))
-  output, _status = run_changelogger
-  _(changelog(0)).must_include '## ????????'
+  output, _status = changelogger('plan')
+  _(revisions[0]['time']).must_equal '????-??-??'
   _(output).must_include 'no file to take one from'
 end
 
@@ -530,5 +541,237 @@ it "takes no section heading for a name where the header has no name line" do
   run_changelogger
   _(changelog(1)).wont_include '/Changes:/'
   _(changelog(1)).must_include '+ guarded()'
+end
+
+# 0.24.0.  plan describes each revision in revisions.yml, beside the numbered
+# directories, which is what git-import-all commits them by; build writes the
+# CHANGELOGs from it.
+def revisions_yml
+  path = File.join(@root, 'revisions.yml')
+  File.exist?(path) ? File.read(path) : nil
+end
+
+def revisions
+  YAML.safe_load(revisions_yml)['revisions']
+end
+
+def edit_revisions
+  File.write(File.join(@root, 'revisions.yml'), yield(revisions_yml))
+end
+
+def handwritten_changelog(number, name, content)
+  FileUtils.mkdir_p(File.join(@root, number.to_s))
+  File.write(File.join(@root, number.to_s, name), content)
+end
+
+it "plans one entry for each revision, in order, with only a revision, a time and a message" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  revision(1, script('0.1.0', PLAIN_METHOD + MODIFIER_METHOD))
+  revision(2, script('0.2.0', PLAIN_METHOD + MODIFIER_METHOD + "def third(value)\n  value\nend\n"))
+  output, status = changelogger('plan')
+  _(status).must_equal 0
+  _(output).must_include 'Wrote revisions.yml'
+  _(revisions.map{|entry| entry['revision']}).must_equal [0, 1, 2]
+  _(revisions.map(&:keys).uniq).must_equal [%w[revision time message]]
+  _(revisions.map{|entry| entry['message'].lines.first.chomp}).must_equal ['0.0.0: + bin/thing', '0.1.0: ~ bin/thing: + guarded()', '0.2.0: ~ bin/thing: + third()']
+end
+
+it "plans no CHANGELOG, that being build's" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  changelogger('plan')
+  _(changelog(0)).must_be_nil
+end
+
+it "gives a message the entry's items beneath its summary, as its CHANGELOG has it" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  revision(1, script('0.1.0', PLAIN_METHOD + MODIFIER_METHOD, changes: "# Changes since 0.0:\n# -/0: Guard the empty case.\n# 1. + guarded()\n# 2. ~ plain()\n"))
+  run_changelogger
+  _(revisions[1]['message']).must_equal "0.1.0: Guard the empty case.\n\n1. + guarded()\n2. ~ plain()"
+  _(changelog(1)).must_include revisions[1]['message']
+  _(revisions_yml).must_include "  message: |-\n    0.1.0: Guard the empty case.\n\n    1. + guarded()\n"
+end
+
+it "plans the bare day as the time" do
+  revision(0, script('0.0.0', PLAIN_METHOD, date: '20130622'))
+  changelogger('plan')
+  _(revisions_yml).must_include "time: '2013-06-22'\n"
+  _(revisions[0]['time']).must_equal '2013-06-22'
+end
+
+it "does not replace an existing revisions.yml" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  File.write(File.join(@root, 'revisions.yml'), "edited by hand\n")
+  output, status = changelogger('plan')
+  _(status).must_equal 1
+  _(revisions_yml).must_equal "edited by hand\n"
+  _(output).must_include 'revisions.yml already exists, and is not replaced'
+end
+
+# Several versions beneath one heading, and an entry stating no version, set apart
+# by two blank lines, as changelogger writes them; and indented lines kept so.
+it "plans a revision's entries from a CHANGELOG with a date in each heading" do
+  (0..3).each{|number| revision(number, script("0.#{number}.0", PLAIN_METHOD + "# #{number}\n"))}
+  handwritten_changelog(3, 'CHANGELOG', <<~CHANGELOG)
+    # CHANGELOG
+
+    ## 20130624
+
+    0.1.1: Fix mount().
+
+    1. ~ mount(): wait for
+          the device.
+
+
+    Tidied the tests.
+
+
+    0.1.0: + attach()
+
+
+    ## 20130622
+
+    0.0.0: + lib/Dmg.rb
+  CHANGELOG
+  output, status = changelogger('plan')
+  _(output).must_include '3: took 4 entries from its CHANGELOG'
+  _(status).must_equal 0
+  _(revisions.map{|entry| entry['time']}).must_equal %w[2013-06-22 2013-06-24 2013-06-24 2013-06-24]
+  _(revisions.map{|entry| entry['message']}).must_equal [
+    '0.0.0: + lib/Dmg.rb',
+    '0.1.0: + attach()',
+    'Tidied the tests.',
+    "0.1.1: Fix mount().\n\n1. ~ mount(): wait for\n      the device.",
+  ]
+end
+
+# Rewritten in changelogger's form, which happens the once, when it is planned.
+it "plans a revision's entries from a CHANGELOG with a version in each heading, and builds it afresh" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  revision(1, script('0.1.0', PLAIN_METHOD + MODIFIER_METHOD))
+  handwritten_changelog(1, 'CHANGELOG.md', <<~CHANGELOG)
+    # Changelog
+
+    ## [0.1.0] - 2013-06-23
+    ### Added
+    - attach()
+    - detach()
+
+    ## 0.0.0 (2013-06-22)
+
+    The first version.
+  CHANGELOG
+  _output, status = run_changelogger
+  _(status).must_equal 0
+  _(revisions.map{|entry| entry['time']}).must_equal %w[2013-06-22 2013-06-23]
+  _(revisions.map{|entry| entry['message']}).must_equal ['0.0.0: The first version.', "0.1.0\n\n### Added\n- attach()\n- detach()"]
+  _(File.read(File.join(@root, '1', 'CHANGELOG.md'))).must_equal "# CHANGELOG\n\n## 20130623\n\n0.1.0\n\n### Added\n- attach()\n- detach()\n\n\n## 20130622\n\n0.0.0: The first version.\n"
+  _(changelog(1)).must_be_nil
+end
+
+it "plans a CHANGELOG's entries only where they number the revisions" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  revision(1, script('0.1.0', PLAIN_METHOD + MODIFIER_METHOD))
+  handwritten_changelog(1, 'CHANGELOG', "# CHANGELOG\n\n## 20130622\n\n0.1.0: + attach()\n")
+  output, status = changelogger('plan')
+  _(status).must_equal 1
+  _(output).must_include 'Wrote no revisions.yml: 1 entries for 2 revisions'
+  _(revisions_yml).must_be_nil
+end
+
+# A revision with no date is planned all the same, and said, revisions.yml being
+# where it is given; build will not write from it until it is.
+it "plans a revision with no date, and builds once it has been given one" do
+  FileUtils.mkdir_p(File.join(@root, '0'))
+  revision(1, script('0.1.0', PLAIN_METHOD))
+  output, status = changelogger('plan')
+  _(status).must_equal 0
+  _(output).must_include '0: no date; give it a time in revisions.yml'
+  _(output).must_include '0: no message; give it one in revisions.yml'
+  output, status = changelogger('build')
+  _(status).must_equal 1
+  _(output).must_include 'revisions.yml: revisions[0] has a time which does not parse: "????-??-??"'
+  _(output).must_include 'revisions.yml: revisions[0] has no message'
+  _(changelog(1)).must_be_nil
+  edit_revisions{|text| text.sub(/time: \S+\n  message: \S+/, "time: '2013-06-21'\n  message: An empty beginning.")}
+  _output, status = changelogger('build')
+  _(status).must_equal 0
+  _(changelog(1)).must_include "## 20130621\n\nAn empty beginning.\n"
+end
+
+# Once planned, revisions.yml is the record: an entry corrected there is carried
+# into every CHANGELOG from its revision on.
+it "builds every CHANGELOG from revisions.yml as it stands" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  revision(1, script('0.1.0', PLAIN_METHOD + MODIFIER_METHOD))
+  revision(2, script('0.2.0', PLAIN_METHOD + MODIFIER_METHOD + "def third(value)\n  value\nend\n"))
+  run_changelogger
+  edit_revisions{|text| text.sub('0.1.0: ~ bin/thing: + guarded()', '0.1.0: Guard the empty case.')}
+  output, status = changelogger('build')
+  _(status).must_equal 0
+  _(output).wont_include 'version 0'
+  _(output).must_include 'Rewrote CHANGELOG for version 1'
+  _(output).must_include 'Rewrote CHANGELOG for version 2'
+  _(changelog(1)).must_include '0.1.0: Guard the empty case.'
+  _(changelog(2)).must_include '0.1.0: Guard the empty case.'
+  _(changelog(0)).wont_include '0.1.0'
+end
+
+it "builds nothing anew where nothing has changed" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  run_changelogger
+  output, _status = changelogger('build')
+  _(output).must_equal ''
+end
+
+# A full time is a day in the zone it states, which is the day its heading says.
+it "builds a heading from the day of a full time" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  changelogger('plan')
+  edit_revisions{|text| text.sub(/time: \S+/, "time: '2013-06-22 23:30:00 -1000'")}
+  changelogger('build')
+  _(changelog(0)).must_include '## 20130622'
+end
+
+it "builds nothing from a revisions.yml whose entry is not for the directory at its place" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  revision(1, script('0.1.0', PLAIN_METHOD + MODIFIER_METHOD))
+  changelogger('plan')
+  edit_revisions{|text| text.sub('revision: 1', 'revision: 2')}
+  output, status = changelogger('build')
+  _(status).must_equal 1
+  _(output).must_include 'revisions.yml: revisions[1] states revision 2 where the directory at its place is 1'
+  _(changelog(0)).must_be_nil
+end
+
+it "builds nothing where there is no revisions.yml" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  output, status = changelogger('build')
+  _(status).must_equal 1
+  _(output).must_include 'No revisions.yml: run changelogger plan first'
+end
+
+it "says what build would write, and writes nothing, in a dry run" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  changelogger('plan')
+  output, status = changelogger('build', '-n')
+  _(status).must_equal 0
+  _(output).must_include 'Would write the CHANGELOG for version 0'
+  _(changelog(0)).must_be_nil
+end
+
+it "wants plan or build" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  output = IO.popen([RbConfig.ruby, TOOL, @root], err: [:child, :out], &:read)
+  _($?.exitstatus).must_equal 1
+  _(output).must_include 'Usage: changelogger plan'
+  _(revisions_yml).must_be_nil
+end
+
+it "takes --header-file for plan alone" do
+  revision(0, script('0.0.0', PLAIN_METHOD))
+  changelogger('plan')
+  output, status = changelogger('build', '-f', 'bin/thing')
+  _(status).must_equal 1
+  _(output).must_include 'Usage: changelogger plan'
 end
 end

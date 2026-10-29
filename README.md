@@ -2,18 +2,25 @@
 
 ## Description
 
-Given a directory of numbered revisions, writes a cumulative CHANGELOG into each of them.
+Given a directory of numbered revisions, describes each of them in a `revisions.yml`, its commit message and day, and writes a cumulative CHANGELOG into each of them from it.
 
-It is for projects whose history was kept as numbered directories rather than as commits, and which have no CHANGELOG to show for it. Its output is a starting point to be edited, not a finished record: it can say what changed, but only you can say what the change was for.
+It is for projects whose history was kept as numbered directories rather than as commits, and which have no CHANGELOG to show for it. What it plans is a starting point to be edited, not a finished record: it can say what changed, but only you can say what the change was for.
 
-For each revision in turn, `changelogger` takes the entry from the first of these tiers which applies:
+It works in two steps, as `interleaver` does, so that what was found can be looked at and corrected before anything is built from it:
+
+1. `plan` reads the revisions and writes `revisions.yml`.
+2. `build` writes every revision's CHANGELOG from `revisions.yml`.
+
+Once planned, `revisions.yml` is the record. A correction is made there, and `build` carries it into every CHANGELOG it belongs in.
+
+For each revision in turn, `plan` takes the entry from the first of these tiers which applies:
 
 1. The Changes section in the revision's script header, used as written.
 2. A structural diff against the previous revision, listing the requires, modules, classes and methods added, removed or altered, and a change of the program's name where the header carries one.
 3. For the first revision, an inventory of what is present.
 4. For a snapshot, a working copy taken between versions rather than a version, an entry stating no version and summarised by the whole of its diff, as `~ test/test.rb, test/6.0.csv --> test/6.1.csv`. A snapshot is a revision identical to the one before it, or one which comes after a version has been stated and whose header states neither a new version nor a new Changes item. A file gone and one come, alone of their kind in one directory, are taken for one renamed.
 
-A revision which already has a CHANGELOG is skipped, so a generated entry can be rewritten by hand and will not be overwritten on a later run.
+A revision which already has a CHANGELOG, written by hand, gives its entries from that instead, as described under `revisions.yml` below.
 
 
 ## Installation
@@ -32,12 +39,16 @@ chmod +x /path/to/changelogger
 ## Usage
 
 ```shell
-$ changelogger ~/path/to/revisions/root/
-$ changelogger .
-$ changelogger
+$ changelogger plan ~/path/to/revisions/root/
+$ changelogger build ~/path/to/revisions/root/
+$ changelogger plan -f lib/Browser.rb ~/path/to/revisions/root/
+$ changelogger build -n ~/path/to/revisions/root/
+$ changelogger plan
 ```
 
-The revisions root holds directories named `0`, `1`, `2` and so on, each a complete copy of the project at that point. Only numbered directories are considered; anything else is passed over. With no argument the current directory is used.
+The revisions root holds directories named `0`, `1`, `2` and so on, each a complete copy of the project at that point. Only numbered directories are considered; anything else is passed over. With no revisions root the current directory is used.
+
+`-f`, `--header-file` is `plan`'s, and names the file whose header is read, relative to each numbered directory, where a project holds both `bin/` and `lib/`. `-n`, `--dry-run` is `build`'s, and says which CHANGELOGs would be written without writing them.
 
 
 ## The Changes section
@@ -74,13 +85,13 @@ Any further heading ends the section: a line which is a capitalised word or word
 A line which is none of these — not a marker, a numbered item, a blank line or a heading — is not understood. `changelogger` warns on stderr naming the revision, and writes the line into the entry as `? <line>`, so that nothing is dropped without saying so. Fix it in the header and run again, or edit the entry by hand.
 
 
-## Output
+## The CHANGELOGs
 
-Entries are written newest first, and each revision receives every entry up to and including its own, so revision `0` has one entry and the last revision has them all. The form is the one the repositories already use, and the one `git-import-all` reads, so the output needs no converting before an import — only the editing which any generated prose wants.
+Entries are written newest first, and each revision receives every entry up to and including its own, so revision `0` has one entry and the last revision has them all. The form is the one the repositories already use.
 
-A date heading is written once for the versions which share it rather than once apiece, the day being one occasion and the versions the steps it was released in. `git-import-all` reads that form as of 0.14.0; an older copy takes the first version beneath a heading and drops the rest without a word.
+A date heading is written once for the versions which share it rather than once apiece, the day being one occasion and the versions the steps it was released in.
 
-Where a revision's script header carries no date, the header file's modification time is taken in its place, or, where there is no header file, the newest file's in the revision, and a warning naming the revision, the date, and the file goes to stderr. A modification time is only as good as the copy which kept it: a tree copied without keeping times dates every revision as the day of the copy, which is why it is said each time. Only a revision holding nothing has `## ????????` written in its place.
+Where a revision's script header carries no date, the header file's modification time is taken in its place, or, where there is no header file, the newest file's in the revision, and a warning naming the revision, the date, and the file goes to stderr. A modification time is only as good as the copy which kept it: a tree copied without keeping times dates every revision as the day of the copy, which is why it is said each time. Only a revision holding nothing has no date, and `plan` writes its time as `????-??-??`, to be given in `revisions.yml`.
 
 The version and date come from the revision's script header, which is the source of record:
 
@@ -92,9 +103,40 @@ The version and date come from the revision's script header, which is the source
 ```
 
 
+## revisions.yml
+
+`plan` writes `revisions.yml` beside the numbered directories, in the revisions root, one entry for each revision in order:
+
+```yaml
+revisions:
+- revision: 0
+  time: '2013-06-22'
+  message: |-
+    0.0.0: + lib/Dmg.rb
+- revision: 1
+  time: '2013-06-22'
+  message: |-
+    0.1.0: + attach()
+
+    1. ~ lib/Dmg.rb: + attach()
+    2. ~ lib/Dmg.rb: ~ mount()
+```
+
+`revision` is the directory's number. `time` is the day the revision's header states, or the modification time's day where it states none. A full time, `'2013-06-22 13:50:32 +1000'`, may be given in its place, and `build` heads the entry with that time's day in the zone it states. `message` is the entry, the summary line and, beneath a blank line, the numbered items, so that a commit and its CHANGELOG entry say the same.
+
+`plan` does not replace an existing `revisions.yml`, that being the record once it is written. To plan again, remove it first. A revision which then holds a CHANGELOG gives its entries from it, `build` having written one into every revision, so planning again reads back what was built. To plan again from the headers, remove the CHANGELOGs too.
+
+A revision which already holds a CHANGELOG, written by hand, gives `plan` the entries it holds in place of every entry up to it, whether in the form `changelogger` writes or with a version in each heading, `## [0.1.0] - 2013-06-23` or `## 0.1.0 (2013-06-23)`. In the second form, the heading's version, and its summary where it carries one, make the message's first line, and what stands beneath the heading follows. A line standing alone beneath the heading, and which is neither a heading of its own nor a numbered item, is taken for the summary where the heading has none. `build` then writes that CHANGELOG afresh in `changelogger`'s form, under the name it has. Where the entries a CHANGELOG holds do not number the revisions up to it, `plan` writes nothing.
+
+A revision with no date, or no message, is planned all the same with what there is, `????-??-??` or an empty message, and named on stderr, `revisions.yml` being where it is given.
+
+`build` writes nothing from a `revisions.yml` which `git-import-all` would refuse: an entry which is not for the directory at its place, a time which is neither a bare day nor a full time, quoted, or an empty message. Each fault is named on stderr and `changelogger` exits 1. Otherwise it writes every CHANGELOG which is not already what it would write, so a correction in `revisions.yml` reaches every revision from its own on, and a CHANGELOG edited by hand is written over.
+
 ## Related tools
 
-`git-import-all` turns the same numbered revisions into a git repository, one commit per revision, taking each commit's message and date from the CHANGELOG. Running `changelogger` first is what makes that possible where no CHANGELOG exists.
+`git-import-all` turns the same numbered revisions into a git repository, one commit per revision, taking each commit's message and date from `revisions.yml` as of 0.17.0, and from the last revision's CHANGELOG before that. `changelogger plan`, a correction or two, and `changelogger build` come first, so that each revision is committed with its CHANGELOG.
+
+`interleaver` writes a `revisions.yml` of its own, for a collection merged from several series. `build` is not meant for that one, a CHANGELOG mixing several series not being one wanted.
 
 `git-boot` creates the repository beforehand, beginning it with a parentless `.gitignore` commit so that real work is never the root.
 

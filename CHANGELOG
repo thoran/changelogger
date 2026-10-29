@@ -1,5 +1,21 @@
 # changelogger/CHANGELOG
 
+## 20261031
+
+0.24.0: + plan, which describes each revision in revisions.yml for git-import-all, and + build, which writes the CHANGELOGs from it.
+
+1. + plan: writes revisions.yml into the revisions root, each revision's number, day and commit message, from the entries which wrote the CHANGELOGs before; an existing one is not replaced, being the record once written. A revision with no date or no message is written with `????-??-??` or an empty message and named on stderr; entries from a CHANGELOG which do not number the revisions write nothing. + planned_entries(), + note_gaps(), + revisions(), + revisions_yaml(), + day(), + revisions_path().
+2. + build: writes every revision's CHANGELOG from revisions.yml, into the one it holds under whatever name, where it is not already what would be written; it writes nothing from a file git-import-all would refuse, checked as git-import-all 0.17.0 checks it. + -n, --dry-run. + recorded_entries(), + recorded_list(), + recorded_faults(), + entry_faults(), + day_of(), + changelog_report(); /write_changelog()/changelog_content()/, + write_changelog().
+3. ~ main(): plan or build, one being required. + command(), + validate_command(), + take_option(), + dry_run?(), + usage_error(); ~ parse_arguments(): -f, --header-file is plan's.
+4. + Changelog: taken from git-import-all 0.16.0, its CHANGELOG reader, for a date in each heading, several versions beneath one and entries stating none among them, and for a version in each heading. ~ Changelog::Format::Common#entry(): + body:, the entry's whole text. ~ Changelog::Format::DatedHeading: + `## ????????`; a block keeps its lines' indentation. ~ Changelog::Format::VersionedHeading#parse(): the body's first line is the heading's version and summary, the summary where the heading has none being a line of prose standing alone beneath it. + Changelog::NotUnderstood.
+5. ~ entries_from(): reads a revision's CHANGELOG with Changelog, whatever its name, rather than with a pattern which read only changelogger's own form; one not understood gives no entries, and says so. + changelog_path(), + changelog_date(); ~ changelog_exist?().
+6. ~ heading_date(): no longer says ???????? is written, plan writing `????-??-??` as the time.
+7. + require 'yaml'.
+8. ~ test/changelogger_test.rb: + changelogger(), ~ run_changelogger(): plan and then build. + seventeen examples: plan's file, its shape and order, messages with items, the bare day, no CHANGELOG written, an existing file kept, a CHANGELOG in either form and one not numbering the revisions, a missing date planned and then given; build from the file as it stands, nothing rewritten where nothing changed, a full time's day, an entry out of place refused, no file, a dry run; a subcommand wanted, and -f being plan's. ~ four examples: a CHANGELOG not understood left alone, two read when planning again, and ????-??-?? planned.
+9. ~ README.md: + plan and build; + revisions.yml; /Output/The CHANGELOGs/.
+10. ~ TODO: ~ item 1, for plan; ~ item 6, for the reader taken from git-import-all.
+11. ~ bin/changelogger: + plan, build and revisions.yml in the header's description and examples; /0.23.0/0.24.0/
+
 ## 20261011
 
 0.23.0: Take no section heading for the program's name where a header has no name line.
